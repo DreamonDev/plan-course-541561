@@ -1,26 +1,40 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { Layout } from "@/components/Layout";
+import StoresPage from "./pages/StoresPage";
+import StorePlanEditor from "./pages/StorePlanEditor";
+import CategoriesPage from "./pages/CategoriesPage";
+import ShoppingListsPage from "./pages/ShoppingListsPage";
+import ShoppingListDetail from "./pages/ShoppingListDetail";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/stores" replace />} />
+            <Route element={<Layout />}>
+              <Route path="/stores" element={<StoresPage />} />
+              <Route path="/stores/:id/plan" element={<StorePlanEditor />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/lists" element={<ShoppingListsPage />} />
+              <Route path="/lists/:id" element={<ShoppingListDetail />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
