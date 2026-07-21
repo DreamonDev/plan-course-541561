@@ -53,7 +53,7 @@ export default function StorePlanEditor() {
           break;
       }
     },
-    [id, mode, selectedCat, store, updateCell, setEntrance]
+    [id, mode, store, updateCell, setEntrance]
   );
 
   const handleMouseDown = (row: number, col: number) => {
