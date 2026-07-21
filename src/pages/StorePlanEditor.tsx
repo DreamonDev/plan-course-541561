@@ -231,6 +231,7 @@ export default function StorePlanEditor() {
                   if (cat) textContent = cat.name;
                   if (isEntrance) textContent = '🚪';
 
+                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci;
                   return (
                     <td
                       key={ci}
@@ -249,7 +250,42 @@ export default function StorePlanEditor() {
                       onMouseEnter={() => handleMouseEnter(ri, ci)}
                       onClick={() => mode !== 'select' && handleCellClick(ri, ci)}
                     >
-                      <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                      <Popover open={isCatOpen} onOpenChange={(o) => !o && setCatPopover(null)}>
+                        <PopoverTrigger asChild>
+                          <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-1" align="start">
+                          <div className="max-h-64 overflow-auto">
+                            {categories.length === 0 && (
+                              <div className="text-xs text-muted-foreground p-2">Aucune catégorie</div>
+                            )}
+                            {categories.map((c) => (
+                              <button
+                                key={c.id}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                onClick={() => {
+                                  updateCell(id!, ri, ci, { categoryId: c.id });
+                                  setCatPopover(null);
+                                }}
+                              >
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                                <span className="truncate">{c.name}</span>
+                              </button>
+                            ))}
+                            {cell.categoryId && (
+                              <button
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left border-t border-border mt-1 pt-2"
+                                onClick={() => {
+                                  updateCell(id!, ri, ci, { categoryId: undefined });
+                                  setCatPopover(null);
+                                }}
+                              >
+                                <X className="h-3 w-3" /> Retirer la catégorie
+                              </button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </td>
                   );
                 })}
