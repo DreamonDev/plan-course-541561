@@ -1,13 +1,13 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
-  DoorOpen, Palette, Eraser, Merge, Ungroup
+  DoorOpen, Palette, Eraser, Merge, Ungroup, X
 } from 'lucide-react';
 
 const modeConfig = [
