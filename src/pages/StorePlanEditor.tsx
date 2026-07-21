@@ -251,34 +251,47 @@ export default function StorePlanEditor() {
                       onMouseEnter={() => handleMouseEnter(ri, ci)}
                       onClick={() => mode !== 'select' && handleCellClick(ri, ci)}
                     >
-                      <Popover open={isCatOpen} onOpenChange={(o) => !o && setCatPopover(null)}>
+                      <Popover open={isCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
                         <PopoverTrigger asChild>
                           <span className="truncate block px-0.5 leading-tight">{textContent}</span>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-1" align="start">
+                          <div className="p-1">
+                            <Input
+                              autoFocus
+                              placeholder="Rechercher..."
+                              value={catSearch}
+                              onChange={(e) => setCatSearch(e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
                           <div className="max-h-64 overflow-auto">
                             {categories.length === 0 && (
                               <div className="text-xs text-muted-foreground p-2">Aucune catégorie</div>
                             )}
-                            {categories.map((c) => (
-                              <button
-                                key={c.id}
-                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
-                                onClick={() => {
-                                  updateCell(id!, ri, ci, { categoryId: c.id });
-                                  setCatPopover(null);
-                                }}
-                              >
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-                                <span className="truncate">{c.name}</span>
-                              </button>
-                            ))}
+                            {categories
+                              .filter((c) => c.name.toLowerCase().includes(catSearch.toLowerCase()))
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                  onClick={() => {
+                                    updateCell(id!, ri, ci, { categoryId: c.id });
+                                    setCatPopover(null);
+                                    setCatSearch('');
+                                  }}
+                                >
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                                  <span className="truncate">{c.name}</span>
+                                </button>
+                              ))}
                             {cell.categoryId && (
                               <button
                                 className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left border-t border-border mt-1 pt-2"
                                 onClick={() => {
                                   updateCell(id!, ri, ci, { categoryId: undefined });
                                   setCatPopover(null);
+                                  setCatSearch('');
                                 }}
                               >
                                 <X className="h-3 w-3" /> Retirer la catégorie
