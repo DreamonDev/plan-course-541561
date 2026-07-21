@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { HexColorPicker } from 'react-colorful';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,8 +21,12 @@ export default function CategoriesPage() {
   const [search, setSearch] = useState('');
 
   const handleAdd = () => {
-    if (!newName.trim()) return;
-    addCategory(newName.trim(), newColor);
+    const name = newName.trim();
+    if (!name) return;
+    addCategory(name, newColor);
+    toast.success('Catégorie ajoutée', {
+      description: name,
+    });
     setNewName('');
     setNewColor('#3b9e7c');
   };
