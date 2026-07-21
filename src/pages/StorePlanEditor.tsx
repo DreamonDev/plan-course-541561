@@ -1,13 +1,13 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
-  DoorOpen, Palette, Eraser, Merge, Ungroup
+  DoorOpen, Palette, Eraser, Merge, Ungroup, X
 } from 'lucide-react';
 
 const modeConfig = [
@@ -27,7 +27,7 @@ export default function StorePlanEditor() {
   const { updateCell, setEntrance, addRow, removeRow, addCol, removeCol, mergeCells, unmergeCells, updateColWidth, updateRowHeight } = useAppStore();
 
   const [mode, setMode] = useState<EditorMode>('select');
-  const [selectedCat, setSelectedCat] = useState<string>('');
+  const [catPopover, setCatPopover] = useState<{ r: number; c: number } | null>(null);
   const [selection, setSelection] = useState<{ start: { r: number; c: number }; end: { r: number; c: number } } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
@@ -46,14 +46,14 @@ export default function StorePlanEditor() {
           updateCell(id, row, col, { type: 'aisle' });
           break;
         case 'category':
-          if (selectedCat) updateCell(id, row, col, { categoryId: selectedCat });
+          setCatPopover({ r: row, c: col });
           break;
         case 'erase':
           updateCell(id, row, col, { type: 'empty', categoryId: undefined });
           break;
       }
     },
-    [id, mode, selectedCat, store, updateCell, setEntrance]
+    [id, mode, store, updateCell, setEntrance]
   );
 
   const handleMouseDown = (row: number, col: number) => {
@@ -156,21 +156,7 @@ export default function StorePlanEditor() {
         ))}
 
         {mode === 'category' && (
-          <Select value={selectedCat} onValueChange={setSelectedCat}>
-            <SelectTrigger className="h-7 w-[140px] text-xs ml-1">
-              <SelectValue placeholder="Catégorie..." />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                    {c.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <span className="text-xs text-muted-foreground ml-1">Cliquez une cellule pour choisir sa catégorie</span>
         )}
 
         {mode === 'select' && selection && (
@@ -245,6 +231,7 @@ export default function StorePlanEditor() {
                   if (cat) textContent = cat.name;
                   if (isEntrance) textContent = '🚪';
 
+                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci;
                   return (
                     <td
                       key={ci}
@@ -263,7 +250,42 @@ export default function StorePlanEditor() {
                       onMouseEnter={() => handleMouseEnter(ri, ci)}
                       onClick={() => mode !== 'select' && handleCellClick(ri, ci)}
                     >
-                      <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                      <Popover open={isCatOpen} onOpenChange={(o) => !o && setCatPopover(null)}>
+                        <PopoverTrigger asChild>
+                          <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-1" align="start">
+                          <div className="max-h-64 overflow-auto">
+                            {categories.length === 0 && (
+                              <div className="text-xs text-muted-foreground p-2">Aucune catégorie</div>
+                            )}
+                            {categories.map((c) => (
+                              <button
+                                key={c.id}
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                onClick={() => {
+                                  updateCell(id!, ri, ci, { categoryId: c.id });
+                                  setCatPopover(null);
+                                }}
+                              >
+                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                                <span className="truncate">{c.name}</span>
+                              </button>
+                            ))}
+                            {cell.categoryId && (
+                              <button
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left border-t border-border mt-1 pt-2"
+                                onClick={() => {
+                                  updateCell(id!, ri, ci, { categoryId: undefined });
+                                  setCatPopover(null);
+                                }}
+                              >
+                                <X className="h-3 w-3" /> Retirer la catégorie
+                              </button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </td>
                   );
                 })}
