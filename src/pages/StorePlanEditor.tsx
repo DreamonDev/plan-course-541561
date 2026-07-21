@@ -156,21 +156,7 @@ export default function StorePlanEditor() {
         ))}
 
         {mode === 'category' && (
-          <Select value={selectedCat} onValueChange={setSelectedCat}>
-            <SelectTrigger className="h-7 w-[140px] text-xs ml-1">
-              <SelectValue placeholder="Catégorie..." />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
-                    {c.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <span className="text-xs text-muted-foreground ml-1">Cliquez une cellule pour choisir sa catégorie</span>
         )}
 
         {mode === 'select' && selection && (
