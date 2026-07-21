@@ -46,7 +46,7 @@ export default function StorePlanEditor() {
           updateCell(id, row, col, { type: 'aisle' });
           break;
         case 'category':
-          if (selectedCat) updateCell(id, row, col, { categoryId: selectedCat });
+          setCatPopover({ r: row, c: col });
           break;
         case 'erase':
           updateCell(id, row, col, { type: 'empty', categoryId: undefined });
