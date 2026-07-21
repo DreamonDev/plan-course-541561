@@ -27,7 +27,7 @@ export default function StorePlanEditor() {
   const { updateCell, setEntrance, addRow, removeRow, addCol, removeCol, mergeCells, unmergeCells, updateColWidth, updateRowHeight } = useAppStore();
 
   const [mode, setMode] = useState<EditorMode>('select');
-  const [selectedCat, setSelectedCat] = useState<string>('');
+  const [catPopover, setCatPopover] = useState<{ r: number; c: number } | null>(null);
   const [selection, setSelection] = useState<{ start: { r: number; c: number }; end: { r: number; c: number } } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
