@@ -28,6 +28,7 @@ export default function StorePlanEditor() {
 
   const [mode, setMode] = useState<EditorMode>('select');
   const [catPopover, setCatPopover] = useState<{ r: number; c: number } | null>(null);
+  const [catSearch, setCatSearch] = useState('');
   const [selection, setSelection] = useState<{ start: { r: number; c: number }; end: { r: number; c: number } } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
