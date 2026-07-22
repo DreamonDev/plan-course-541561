@@ -16,7 +16,7 @@ function DimInput({ value, onCommit, className }: { value: number; onCommit: (v:
   const commit = () => {
     const n = parseInt(local, 10);
     if (!isNaN(n)) {
-      const clamped = Math.max(20, Math.min(400, n));
+      const clamped = Math.max(5, Math.min(500, Math.round(n / 5) * 5));
       onCommit(clamped);
       setLocal(String(clamped));
     } else {
