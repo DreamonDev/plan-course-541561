@@ -225,15 +225,18 @@ export default function StorePlanEditor() {
 
                   let bgColor = 'transparent';
                   let textContent = '';
+                  let isCategorized = false;
                   if (cell.type === 'wall') {
-                    bgColor = 'hsl(var(--foreground) / 0.75)';
+                    bgColor = 'hsl(var(--foreground) / 0.85)';
                   } else if (cat) {
-                    bgColor = cat.color + '40';
+                    bgColor = cat.color;
+                    isCategorized = true;
                   } else if (cell.type === 'aisle') {
-                    bgColor = 'hsl(var(--primary) / 0.1)';
+                    bgColor = 'hsl(var(--card))';
                   }
 
                   if (cat) textContent = cat.name;
+                  else if (cell.type === 'aisle') textContent = 'Allée';
                   if (isEntrance) textContent = '🚪';
 
                   const isCatOpen = catPopover?.r === ri && catPopover?.c === ci;
@@ -248,13 +251,13 @@ export default function StorePlanEditor() {
                         backgroundColor: bgColor,
                         minWidth: store.colWidths[ci],
                       }}
-                      className={`border border-border text-[9px] text-center cursor-pointer transition-colors overflow-hidden ${
+                      className={`border border-border text-center cursor-pointer transition-colors overflow-hidden ${
                         selected ? 'ring-2 ring-primary ring-inset' : ''
-                      } ${isEntrance ? 'text-lg' : 'text-muted-foreground'}`}
+                      } ${isEntrance ? 'text-lg' : isCategorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
                       onMouseDown={() => handleMouseDown(ri, ci)}
                       onMouseEnter={() => handleMouseEnter(ri, ci)}
-                      onClick={() => mode !== 'select' && handleCellClick(ri, ci)}
                     >
+
                       <Popover open={isCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
                         <PopoverTrigger asChild>
                           <span className="truncate block px-0.5 leading-tight">{textContent}</span>
