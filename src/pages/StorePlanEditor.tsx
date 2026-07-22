@@ -210,7 +210,7 @@ export default function StorePlanEditor() {
       >
         <table
           className="border-collapse select-none"
-          style={{ tableLayout: 'fixed' }}
+          style={{ tableLayout: 'fixed', width: store.colWidths.reduce((a, b) => a + b, 0) + 32 }}
         >
           {/* Col width header */}
           <thead>
