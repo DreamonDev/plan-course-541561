@@ -108,6 +108,8 @@ export default function StorePlanEditor() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Sticky toolbar wrapper */}
+      <div className="sticky top-0 z-20 bg-background">
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b border-border shrink-0 flex-wrap">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/stores')}>
@@ -171,6 +173,8 @@ export default function StorePlanEditor() {
           </>
         )}
       </div>
+      </div>
+
 
       {/* Grid */}
       <div
