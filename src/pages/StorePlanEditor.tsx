@@ -232,12 +232,10 @@ export default function StorePlanEditor() {
               <tr key={ri}>
                 {/* Row height control */}
                 <td className="p-0 pr-1">
-                  <Input
-                    type="number"
+                  <DimInput
                     value={store.rowHeights[ri]}
-                    onChange={(e) => updateRowHeight(store.id, ri, parseInt(e.target.value) || 40)}
+                    onCommit={(v) => updateRowHeight(store.id, ri, v)}
                     className="h-5 w-8 text-[10px] text-center p-0 border-0 bg-transparent"
-                    min={20}
                   />
                 </td>
                 {row.map((cell, ci) => {
