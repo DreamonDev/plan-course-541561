@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode } from '@/types';
@@ -9,6 +9,32 @@ import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
   DoorOpen, Palette, Eraser, Merge, Ungroup, X
 } from 'lucide-react';
+
+function DimInput({ value, onCommit, className }: { value: number; onCommit: (v: number) => void; className?: string }) {
+  const [local, setLocal] = useState(String(value));
+  useEffect(() => { setLocal(String(value)); }, [value]);
+  const commit = () => {
+    const n = parseInt(local, 10);
+    if (!isNaN(n)) {
+      const clamped = Math.max(20, Math.min(400, n));
+      onCommit(clamped);
+      setLocal(String(clamped));
+    } else {
+      setLocal(String(value));
+    }
+  };
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={local}
+      onChange={(e) => setLocal(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className={className}
+    />
+  );
+}
 
 const modeConfig = [
   { mode: 'select' as EditorMode, icon: MousePointer2, label: 'Sélection' },
