@@ -218,12 +218,10 @@ export default function StorePlanEditor() {
               <th className="w-8" />
               {store.colWidths.map((w, ci) => (
                 <th key={ci} style={{ width: w }} className="p-0">
-                  <Input
-                    type="number"
+                  <DimInput
                     value={w}
-                    onChange={(e) => updateColWidth(store.id, ci, parseInt(e.target.value) || 40)}
+                    onCommit={(v) => updateColWidth(store.id, ci, v)}
                     className="h-5 text-[10px] text-center p-0 border-0 bg-transparent w-full"
-                    min={20}
                   />
                 </th>
               ))}
