@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode } from '@/types';
@@ -9,6 +9,32 @@ import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
   DoorOpen, Palette, Eraser, Merge, Ungroup, X
 } from 'lucide-react';
+
+function DimInput({ value, onCommit, className }: { value: number; onCommit: (v: number) => void; className?: string }) {
+  const [local, setLocal] = useState(String(value));
+  useEffect(() => { setLocal(String(value)); }, [value]);
+  const commit = () => {
+    const n = parseInt(local, 10);
+    if (!isNaN(n)) {
+      const clamped = Math.max(20, Math.min(400, n));
+      onCommit(clamped);
+      setLocal(String(clamped));
+    } else {
+      setLocal(String(value));
+    }
+  };
+  return (
+    <Input
+      type="text"
+      inputMode="numeric"
+      value={local}
+      onChange={(e) => setLocal(e.target.value.replace(/[^0-9]/g, ''))}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className={className}
+    />
+  );
+}
 
 const modeConfig = [
   { mode: 'select' as EditorMode, icon: MousePointer2, label: 'Sélection' },
@@ -192,12 +218,10 @@ export default function StorePlanEditor() {
               <th className="w-8" />
               {store.colWidths.map((w, ci) => (
                 <th key={ci} style={{ width: w }} className="p-0">
-                  <Input
-                    type="number"
+                  <DimInput
                     value={w}
-                    onChange={(e) => updateColWidth(store.id, ci, parseInt(e.target.value) || 40)}
+                    onCommit={(v) => updateColWidth(store.id, ci, v)}
                     className="h-5 text-[10px] text-center p-0 border-0 bg-transparent w-full"
-                    min={20}
                   />
                 </th>
               ))}
@@ -208,12 +232,10 @@ export default function StorePlanEditor() {
               <tr key={ri}>
                 {/* Row height control */}
                 <td className="p-0 pr-1">
-                  <Input
-                    type="number"
+                  <DimInput
                     value={store.rowHeights[ri]}
-                    onChange={(e) => updateRowHeight(store.id, ri, parseInt(e.target.value) || 40)}
+                    onCommit={(v) => updateRowHeight(store.id, ri, v)}
                     className="h-5 w-8 text-[10px] text-center p-0 border-0 bg-transparent"
-                    min={20}
                   />
                 </td>
                 {row.map((cell, ci) => {
