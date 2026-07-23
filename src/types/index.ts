@@ -44,4 +44,4 @@ export interface ShoppingItem {
   checked: boolean;
 }
 
-export type EditorMode = 'select' | 'wall' | 'aisle' | 'entrance' | 'category' | 'erase';
+export type EditorMode = 'select' | 'wall' | 'aisle' | 'entrance' | 'category' | 'split' | 'erase';
