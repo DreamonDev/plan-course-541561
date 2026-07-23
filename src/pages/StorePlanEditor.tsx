@@ -320,11 +320,8 @@ export default function StorePlanEditor() {
                                     } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''} overflow-hidden`}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
-                                      if (mode === 'select') {
-                                        handleMouseDown(ri, ci, cell);
-                                      } else {
-                                        applyModeToSub(ri, ci, idx, sub);
-                                      }
+                                      if (mode === 'select') return; // sub-cells not selectable
+                                      applyModeToSub(ri, ci, idx, sub);
                                     }}
                                   >
                                     <span className="truncate block px-0.5 leading-tight">
