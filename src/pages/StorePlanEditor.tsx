@@ -116,6 +116,8 @@ export default function StorePlanEditor() {
 
   const handleMouseDown = (row: number, col: number, cur: Cell) => {
     if (mode === 'select') {
+      // Split cells cannot participate in selection/merge (sub-cells are independent).
+      if (cur.split) return;
       setSelection({ start: { r: row, c: col }, end: { r: row, c: col } });
       setIsSelecting(true);
     } else if (!cur.split) {
@@ -296,8 +298,7 @@ export default function StorePlanEditor() {
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className={`border border-border p-0 overflow-hidden ${selected ? 'ring-2 ring-primary ring-inset' : ''}`}
-                        onMouseDown={() => { if (mode === 'select') handleMouseDown(ri, ci, cell); }}
+                        className="border border-border p-0 overflow-hidden"
                       >
                         <div className={`flex ${flexDir} w-full h-full`}>
                           {children.map((sub, sIdx) => {
@@ -319,11 +320,8 @@ export default function StorePlanEditor() {
                                     } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''} overflow-hidden`}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
-                                      if (mode === 'select') {
-                                        handleMouseDown(ri, ci, cell);
-                                      } else {
-                                        applyModeToSub(ri, ci, idx, sub);
-                                      }
+                                      if (mode === 'select') return; // sub-cells not selectable
+                                      applyModeToSub(ri, ci, idx, sub);
                                     }}
                                   >
                                     <span className="truncate block px-0.5 leading-tight">

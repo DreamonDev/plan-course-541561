@@ -9,6 +9,51 @@ function createEmptyCell(): Cell {
   return { type: 'empty' };
 }
 
+// Repair merged flags: cells marked `merged: true` must be covered by a valid
+// mergeSpan on some other cell. Orphaned merged cells (leftovers of partial
+// re-merges) get reset so they render again.
+function repairStoreCells(store: Store): Store {
+  const rows = store.cells.length;
+  const cols = rows > 0 ? store.cells[0].length : 0;
+  const covered: ({ pr: number; pc: number } | null)[][] = Array.from(
+    { length: rows },
+    () => Array<{ pr: number; pc: number } | null>(cols).fill(null),
+  );
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const span = store.cells[r]?.[c]?.mergeSpan;
+      if (!span) continue;
+      for (let rr = r; rr < Math.min(r + span.rows, rows); rr++) {
+        for (let cc = c; cc < Math.min(c + span.cols, cols); cc++) {
+          if (rr === r && cc === c) continue;
+          covered[rr][cc] = { pr: r, pc: c };
+        }
+      }
+    }
+  }
+  let dirty = false;
+  const newCells = store.cells.map((row, r) =>
+    row.map((cell, c) => {
+      const cov = covered[r][c];
+      if (cell.merged && !cov) {
+        dirty = true;
+        const { merged: _m, mergeParent: _p, mergeSpan: _s, ...rest } = cell;
+        return rest as Cell;
+      }
+      if (cov && !cell.merged) {
+        dirty = true;
+        return { ...cell, merged: true, mergeParent: { row: cov.pr, col: cov.pc }, mergeSpan: undefined };
+      }
+      return cell;
+    }),
+  );
+  return dirty ? { ...store, cells: newCells } : store;
+}
+
+function repairAllStores(stores: Store[]): Store[] {
+  return stores.map(repairStoreCells);
+}
+
 function createGrid(rows: number, cols: number): Cell[][] {
   return Array.from({ length: rows }, () =>
     Array.from({ length: cols }, () => createEmptyCell())
@@ -147,7 +192,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (hasCloudData) {
       applyingRemote = true;
       set({
-        stores: cloud.stores ?? [],
+        stores: repairAllStores(cloud.stores ?? []),
         categories: cloud.categories ?? [],
         shoppingLists: cloud.shoppingLists ?? [],
         defaultStoreId: cloud.defaultStoreId ?? null,
@@ -191,7 +236,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           if (incoming === lastSavedJson) return; // our own write
           applyingRemote = true;
           set({
-            stores: newRow.data.stores ?? [],
+            stores: repairAllStores(newRow.data.stores ?? []),
             categories: newRow.data.categories ?? [],
             shoppingLists: newRow.data.shoppingLists ?? [],
             defaultStoreId: newRow.data.defaultStoreId ?? null,
