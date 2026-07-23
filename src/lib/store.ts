@@ -236,7 +236,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           if (incoming === lastSavedJson) return; // our own write
           applyingRemote = true;
           set({
-            stores: newRow.data.stores ?? [],
+            stores: repairAllStores(newRow.data.stores ?? []),
             categories: newRow.data.categories ?? [],
             shoppingLists: newRow.data.shoppingLists ?? [],
             defaultStoreId: newRow.data.defaultStoreId ?? null,
