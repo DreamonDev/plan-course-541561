@@ -62,6 +62,9 @@ interface AppState extends PersistedState {
   updateRowHeight: (storeId: string, row: number, height: number) => void;
   mergeCells: (storeId: string, startRow: number, startCol: number, endRow: number, endCol: number) => void;
   unmergeCells: (storeId: string, row: number, col: number) => void;
+  splitCell: (storeId: string, row: number, col: number, direction: 'horizontal' | 'vertical') => void;
+  unsplitCell: (storeId: string, row: number, col: number) => void;
+  updateSubCell: (storeId: string, row: number, col: number, subIndex: 0 | 1, update: Partial<SubCell>) => void;
 
   // Categories
   addCategory: (name: string, color: string) => void;
