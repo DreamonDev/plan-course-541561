@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
-import type { Store, Cell, Category, ShoppingList, ShoppingItem } from '@/types';
+import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem } from '@/types';
 
 const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
@@ -62,6 +62,9 @@ interface AppState extends PersistedState {
   updateRowHeight: (storeId: string, row: number, height: number) => void;
   mergeCells: (storeId: string, startRow: number, startCol: number, endRow: number, endCol: number) => void;
   unmergeCells: (storeId: string, row: number, col: number) => void;
+  splitCell: (storeId: string, row: number, col: number, direction: 'horizontal' | 'vertical') => void;
+  unsplitCell: (storeId: string, row: number, col: number) => void;
+  updateSubCell: (storeId: string, row: number, col: number, subIndex: 0 | 1, update: Partial<SubCell>) => void;
 
   // Categories
   addCategory: (name: string, color: string) => void;
@@ -366,6 +369,50 @@ export const useAppStore = create<AppState>()((set, get) => ({
             cells[r][c] = { type: cells[row][col].type, categoryId: cells[row][col].categoryId };
           }
         }
+        return { ...st, cells };
+      }),
+    })),
+
+  splitCell: (storeId, row, col, direction) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        const base: SubCell = { type: src.type, categoryId: src.categoryId };
+        cells[row][col] = {
+          ...src,
+          type: 'empty',
+          categoryId: undefined,
+          split: { direction, children: [base, { type: 'empty' }] },
+        };
+        return { ...st, cells };
+      }),
+    })),
+
+  unsplitCell: (storeId, row, col) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split) return st;
+        const first = src.split.children[0];
+        cells[row][col] = { ...src, split: undefined, type: first.type, categoryId: first.categoryId };
+        return { ...st, cells };
+      }),
+    })),
+
+  updateSubCell: (storeId, row, col, subIndex, update) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split) return st;
+        const children = [...src.split.children] as [SubCell, SubCell];
+        children[subIndex] = { ...children[subIndex], ...update };
+        cells[row][col] = { ...src, split: { ...src.split, children } };
         return { ...st, cells };
       }),
     })),
