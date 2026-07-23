@@ -373,6 +373,50 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }),
     })),
 
+  splitCell: (storeId, row, col, direction) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        const base: SubCell = { type: src.type, categoryId: src.categoryId };
+        cells[row][col] = {
+          ...src,
+          type: 'empty',
+          categoryId: undefined,
+          split: { direction, children: [base, { type: 'empty' }] },
+        };
+        return { ...st, cells };
+      }),
+    })),
+
+  unsplitCell: (storeId, row, col) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split) return st;
+        const first = src.split.children[0];
+        cells[row][col] = { ...src, split: undefined, type: first.type, categoryId: first.categoryId };
+        return { ...st, cells };
+      }),
+    })),
+
+  updateSubCell: (storeId, row, col, subIndex, update) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split) return st;
+        const children = [...src.split.children] as [SubCell, SubCell];
+        children[subIndex] = { ...children[subIndex], ...update };
+        cells[row][col] = { ...src, split: { ...src.split, children } };
+        return { ...st, cells };
+      }),
+    })),
+
   addCategory: (name, color) =>
     set((s) => ({
       categories: [...s.categories, { id: crypto.randomUUID(), name, color }],
