@@ -116,6 +116,8 @@ export default function StorePlanEditor() {
 
   const handleMouseDown = (row: number, col: number, cur: Cell) => {
     if (mode === 'select') {
+      // Split cells cannot participate in selection/merge (sub-cells are independent).
+      if (cur.split) return;
       setSelection({ start: { r: row, c: col }, end: { r: row, c: col } });
       setIsSelecting(true);
     } else if (!cur.split) {
