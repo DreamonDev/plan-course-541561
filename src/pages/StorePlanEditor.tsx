@@ -1,13 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
-import type { EditorMode, Cell, SubCell, Category } from '@/types';
+import type { EditorMode } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
-  DoorOpen, Palette, Eraser, Merge, Ungroup, X, SplitSquareHorizontal, SplitSquareVertical
+  DoorOpen, Palette, Eraser, Merge, Ungroup, X
 } from 'lucide-react';
 
 function DimInput({ value, onCommit, className }: { value: number; onCommit: (v: number) => void; className?: string }) {
@@ -42,86 +42,53 @@ const modeConfig = [
   { mode: 'aisle' as EditorMode, icon: StretchHorizontal, label: 'Allée' },
   { mode: 'entrance' as EditorMode, icon: DoorOpen, label: 'Entrée' },
   { mode: 'category' as EditorMode, icon: Palette, label: 'Catégorie' },
-  { mode: 'split' as EditorMode, icon: SplitSquareHorizontal, label: 'Diviser' },
   { mode: 'erase' as EditorMode, icon: Eraser, label: 'Effacer' },
 ];
-
-type CatPopover = { r: number; c: number; sub?: 0 | 1 } | null;
-type SplitPopover = { r: number; c: number } | null;
 
 export default function StorePlanEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const store = useAppStore((s) => s.stores.find((st) => st.id === id));
   const categories = useAppStore((s) => s.categories);
-  const {
-    updateCell, setEntrance, addRow, removeRow, addCol, removeCol,
-    mergeCells, unmergeCells, updateColWidth, updateRowHeight,
-    splitCell, unsplitCell, updateSubCell,
-  } = useAppStore();
+  const { updateCell, setEntrance, addRow, removeRow, addCol, removeCol, mergeCells, unmergeCells, updateColWidth, updateRowHeight } = useAppStore();
 
   const [mode, setMode] = useState<EditorMode>('select');
-  const [catPopover, setCatPopover] = useState<CatPopover>(null);
-  const [splitPopover, setSplitPopover] = useState<SplitPopover>(null);
+  const [catPopover, setCatPopover] = useState<{ r: number; c: number } | null>(null);
   const [catSearch, setCatSearch] = useState('');
   const [selection, setSelection] = useState<{ start: { r: number; c: number }; end: { r: number; c: number } } | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
-  const applyModeToCell = useCallback((row: number, col: number, cur: Cell) => {
-    if (!id) return;
-    switch (mode) {
-      case 'wall':
-        updateCell(id, row, col, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
-        break;
-      case 'aisle':
-        updateCell(id, row, col, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
-        break;
-      case 'entrance':
-        setEntrance(id, row, col);
-        updateCell(id, row, col, { type: 'aisle' });
-        break;
-      case 'category':
-        setCatPopover({ r: row, c: col });
-        break;
-      case 'erase':
-        updateCell(id, row, col, { type: 'empty', categoryId: undefined, split: undefined });
-        break;
-      case 'split':
-        setSplitPopover({ r: row, c: col });
-        break;
-    }
-  }, [id, mode, updateCell, setEntrance]);
+  const handleCellClick = useCallback(
+    (row: number, col: number) => {
+      if (!id || !store) return;
+      switch (mode) {
+        case 'wall':
+          updateCell(id, row, col, { type: store.cells[row][col].type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
+          break;
+        case 'aisle':
+          updateCell(id, row, col, { type: store.cells[row][col].type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
+          break;
+        case 'entrance':
+          setEntrance(id, row, col);
+          updateCell(id, row, col, { type: 'aisle' });
+          break;
+        case 'category':
+          setCatPopover({ r: row, c: col });
+          break;
+        case 'erase':
+          updateCell(id, row, col, { type: 'empty', categoryId: undefined });
+          break;
+      }
+    },
+    [id, mode, store, updateCell, setEntrance]
+  );
 
-  const applyModeToSub = useCallback((row: number, col: number, sub: 0 | 1, cur: SubCell) => {
-    if (!id) return;
-    switch (mode) {
-      case 'wall':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
-        break;
-      case 'aisle':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
-        break;
-      case 'category':
-        setCatPopover({ r: row, c: col, sub });
-        break;
-      case 'erase':
-        updateSubCell(id, row, col, sub, { type: 'empty', categoryId: undefined });
-        break;
-      case 'entrance':
-      case 'split':
-        // not supported on sub-cells
-        break;
-    }
-  }, [id, mode, updateSubCell]);
-
-  const handleMouseDown = (row: number, col: number, cur: Cell) => {
+  const handleMouseDown = (row: number, col: number) => {
     if (mode === 'select') {
-      // Split cells cannot participate in selection/merge (sub-cells are independent).
-      if (cur.split) return;
       setSelection({ start: { r: row, c: col }, end: { r: row, c: col } });
       setIsSelecting(true);
-    } else if (!cur.split) {
-      applyModeToCell(row, col, cur);
+    } else {
+      handleCellClick(row, col);
     }
   };
 
@@ -131,7 +98,9 @@ export default function StorePlanEditor() {
     }
   };
 
-  const handleMouseUp = () => setIsSelecting(false);
+  const handleMouseUp = () => {
+    setIsSelecting(false);
+  };
 
   const handleMerge = () => {
     if (!id || !selection) return;
@@ -163,80 +132,77 @@ export default function StorePlanEditor() {
     return r >= rMin && r <= rMax && c >= cMin && c <= cMax;
   };
 
-  // shared renderer for sub-cell visual
-  const renderSubVisual = (sub: SubCell) => {
-    const cat = sub.categoryId ? categories.find((c) => c.id === sub.categoryId) : null;
-    let bg = 'transparent';
-    let text = '';
-    let categorized = false;
-    if (sub.type === 'wall') bg = 'hsl(var(--foreground) / 0.85)';
-    else if (cat) { bg = cat.color; categorized = true; }
-    else if (sub.type === 'aisle') bg = 'hsl(var(--card))';
-    if (cat) text = cat.name;
-    else if (sub.type === 'aisle') text = 'Allée';
-    return { bg, text, categorized };
-  };
-
   return (
     <div className="flex flex-col h-full">
+      {/* Sticky toolbar wrapper */}
       <div className="sticky top-0 z-20 bg-background">
-        <div className="flex items-center gap-2 p-3 border-b border-border shrink-0 flex-wrap">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/stores')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h2 className="font-semibold text-sm truncate">{store.name}</h2>
+      {/* Header */}
+      <div className="flex items-center gap-2 p-3 border-b border-border shrink-0 flex-wrap">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/stores')}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="font-semibold text-sm truncate">{store.name}</h2>
 
-          <div className="ml-auto flex items-center gap-1 flex-wrap">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
-              <span>Lignes</span>
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => removeRow(store.id)}><Minus className="h-3 w-3" /></Button>
-              <span className="w-5 text-center">{store.rows}</span>
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => addRow(store.id)}><Plus className="h-3 w-3" /></Button>
-            </div>
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <span>Col</span>
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => removeCol(store.id)}><Minus className="h-3 w-3" /></Button>
-              <span className="w-5 text-center">{store.cols}</span>
-              <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => addCol(store.id)}><Plus className="h-3 w-3" /></Button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 p-2 border-b border-border shrink-0 flex-wrap">
-          {modeConfig.map(({ mode: m, icon: Icon, label }) => (
-            <Button
-              key={m}
-              variant={mode === m ? 'default' : 'outline'}
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={() => setMode(m)}
-              title={label}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{label}</span>
+        <div className="ml-auto flex items-center gap-1 flex-wrap">
+          {/* Grid controls */}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
+            <span>Lignes</span>
+            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => removeRow(store.id)}>
+              <Minus className="h-3 w-3" />
             </Button>
-          ))}
-
-          {mode === 'category' && (
-            <span className="text-xs text-muted-foreground ml-1">Cliquez une (sous-)cellule pour choisir sa catégorie</span>
-          )}
-          {mode === 'split' && (
-            <span className="text-xs text-muted-foreground ml-1">Cliquez une cellule à diviser en deux</span>
-          )}
-
-          {mode === 'select' && selection && (
-            <>
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 ml-2" onClick={handleMerge}>
-                <Merge className="h-3.5 w-3.5" /> Fusionner
-              </Button>
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleUnmerge}>
-                <Ungroup className="h-3.5 w-3.5" /> Défusionner
-              </Button>
-            </>
-          )}
+            <span className="w-5 text-center">{store.rows}</span>
+            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => addRow(store.id)}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span>Col</span>
+            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => removeCol(store.id)}>
+              <Minus className="h-3 w-3" />
+            </Button>
+            <span className="w-5 text-center">{store.cols}</span>
+            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => addCol(store.id)}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       </div>
 
+      {/* Toolbar */}
+      <div className="flex items-center gap-1 p-2 border-b border-border shrink-0 flex-wrap">
+        {modeConfig.map(({ mode: m, icon: Icon, label }) => (
+          <Button
+            key={m}
+            variant={mode === m ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={() => setMode(m)}
+            title={label}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">{label}</span>
+          </Button>
+        ))}
+
+        {mode === 'category' && (
+          <span className="text-xs text-muted-foreground ml-1">Cliquez une cellule pour choisir sa catégorie</span>
+        )}
+
+        {mode === 'select' && selection && (
+          <>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1 ml-2" onClick={handleMerge}>
+              <Merge className="h-3.5 w-3.5" /> Fusionner
+            </Button>
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleUnmerge}>
+              <Ungroup className="h-3.5 w-3.5" /> Défusionner
+            </Button>
+          </>
+        )}
+      </div>
+      </div>
+
+
+      {/* Grid */}
       <div
         className="flex-1 overflow-auto p-4"
         onMouseUp={handleMouseUp}
@@ -246,6 +212,7 @@ export default function StorePlanEditor() {
           className="border-collapse select-none"
           style={{ tableLayout: 'fixed', width: store.colWidths.reduce((a, b) => a + b, 0) + 32 }}
         >
+          {/* Col width header */}
           <thead>
             <tr>
               <th className="w-8" />
@@ -263,6 +230,7 @@ export default function StorePlanEditor() {
           <tbody>
             {store.cells.map((row, ri) => (
               <tr key={ri}>
+                {/* Row height control */}
                 <td className="p-0 pr-1">
                   <DimInput
                     value={store.rowHeights[ri]}
@@ -273,149 +241,91 @@ export default function StorePlanEditor() {
                 {row.map((cell, ci) => {
                   if (cell.merged) return null;
                   const span = cell.mergeSpan;
+                  const cat = cell.categoryId ? categories.find((c) => c.id === cell.categoryId) : null;
                   const isEntrance = store.entrance?.row === ri && store.entrance?.col === ci;
                   const selected = isInSelection(ri, ci);
-                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.sub === undefined;
-                  const isSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci;
 
-                  const commonTd = {
-                    key: ci,
-                    colSpan: span?.cols,
-                    rowSpan: span?.rows,
-                    style: {
-                      width: store.colWidths[ci],
-                      height: store.rowHeights[ri],
-                      minWidth: store.colWidths[ci],
-                    } as React.CSSProperties,
-                    onMouseEnter: () => handleMouseEnter(ri, ci),
-                  };
-
-                  // ---- Split cell rendering ----
-                  if (cell.split) {
-                    const { direction, children } = cell.split;
-                    const flexDir = direction === 'vertical' ? 'flex-row' : 'flex-col';
-                    return (
-                      <td
-                        {...commonTd}
-                        style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className="border border-border p-0 overflow-hidden"
-                      >
-                        <div className={`flex ${flexDir} w-full h-full`}>
-                          {children.map((sub, sIdx) => {
-                            const idx = sIdx as 0 | 1;
-                            const { bg, text, categorized } = renderSubVisual(sub);
-                            const isSubCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.sub === idx;
-                            const showEntranceIcon = isEntrance && idx === 0;
-                            return (
-                              <Popover
-                                key={idx}
-                                open={isSubCatOpen}
-                                onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <div
-                                    style={{ backgroundColor: bg }}
-                                    className={`flex-1 flex items-center justify-center cursor-pointer border-border ${
-                                      direction === 'vertical' ? (idx === 0 ? 'border-r' : '') : (idx === 0 ? 'border-b' : '')
-                                    } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''} overflow-hidden`}
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      if (mode === 'select') return; // sub-cells not selectable
-                                      applyModeToSub(ri, ci, idx, sub);
-                                    }}
-                                  >
-                                    <span className="truncate block px-0.5 leading-tight">
-                                      {showEntranceIcon ? '🚪' : text}
-                                    </span>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56 p-1" align="start">
-                                  <CategoryPicker
-                                    categories={categories}
-                                    catSearch={catSearch}
-                                    setCatSearch={setCatSearch}
-                                    currentId={sub.categoryId}
-                                    onPick={(cid) => {
-                                      updateSubCell(id!, ri, ci, idx, { categoryId: cid });
-                                      setCatPopover(null); setCatSearch('');
-                                    }}
-                                    onClear={() => {
-                                      updateSubCell(id!, ri, ci, idx, { categoryId: undefined });
-                                      setCatPopover(null); setCatSearch('');
-                                    }}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            );
-                          })}
-                        </div>
-                      </td>
-                    );
-                  }
-
-                  // ---- Regular cell rendering ----
-                  const cat = cell.categoryId ? categories.find((c) => c.id === cell.categoryId) : null;
                   let bgColor = 'transparent';
                   let textContent = '';
                   let isCategorized = false;
-                  if (cell.type === 'wall') bgColor = 'hsl(var(--foreground) / 0.85)';
-                  else if (cat) { bgColor = cat.color; isCategorized = true; }
-                  else if (cell.type === 'aisle') bgColor = 'hsl(var(--card))';
+                  if (cell.type === 'wall') {
+                    bgColor = 'hsl(var(--foreground) / 0.85)';
+                  } else if (cat) {
+                    bgColor = cat.color;
+                    isCategorized = true;
+                  } else if (cell.type === 'aisle') {
+                    bgColor = 'hsl(var(--card))';
+                  }
+
                   if (cat) textContent = cat.name;
                   else if (cell.type === 'aisle') textContent = 'Allée';
                   if (isEntrance) textContent = '🚪';
 
+                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci;
                   return (
                     <td
-                      {...commonTd}
-                      style={{ ...commonTd.style, backgroundColor: bgColor }}
+                      key={ci}
+                      colSpan={span?.cols}
+                      rowSpan={span?.rows}
+                      style={{
+                        width: store.colWidths[ci],
+                        height: store.rowHeights[ri],
+                        backgroundColor: bgColor,
+                        minWidth: store.colWidths[ci],
+                      }}
                       className={`border border-border text-center cursor-pointer transition-colors overflow-hidden ${
                         selected ? 'ring-2 ring-primary ring-inset' : ''
                       } ${isEntrance ? 'text-lg' : isCategorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
-                      onMouseDown={() => handleMouseDown(ri, ci, cell)}
+                      onMouseDown={() => handleMouseDown(ri, ci)}
+                      onMouseEnter={() => handleMouseEnter(ri, ci)}
                     >
-                      {/* Category popover */}
+
                       <Popover open={isCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
                         <PopoverTrigger asChild>
                           <span className="truncate block px-0.5 leading-tight">{textContent}</span>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-1" align="start">
-                          <CategoryPicker
-                            categories={categories}
-                            catSearch={catSearch}
-                            setCatSearch={setCatSearch}
-                            currentId={cell.categoryId}
-                            onPick={(cid) => {
-                              updateCell(id!, ri, ci, { categoryId: cid });
-                              setCatPopover(null); setCatSearch('');
-                            }}
-                            onClear={() => {
-                              updateCell(id!, ri, ci, { categoryId: undefined });
-                              setCatPopover(null); setCatSearch('');
-                            }}
-                          />
-                        </PopoverContent>
-                      </Popover>
-
-                      {/* Split popover (invisible anchor) */}
-                      <Popover open={isSplitOpen} onOpenChange={(o) => { if (!o) setSplitPopover(null); }}>
-                        <PopoverTrigger asChild>
-                          <span className="sr-only">split-anchor</span>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2" align="start">
-                          <div className="flex flex-col gap-1">
-                            <button
-                              className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
-                              onClick={() => { splitCell(id!, ri, ci, 'horizontal'); setSplitPopover(null); }}
-                            >
-                              <SplitSquareVertical className="h-3.5 w-3.5" /> Horizontalement
-                            </button>
-                            <button
-                              className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
-                              onClick={() => { splitCell(id!, ri, ci, 'vertical'); setSplitPopover(null); }}
-                            >
-                              <SplitSquareHorizontal className="h-3.5 w-3.5" /> Verticalement
-                            </button>
+                          <div className="p-1">
+                            <Input
+                              autoFocus
+                              placeholder="Rechercher..."
+                              value={catSearch}
+                              onChange={(e) => setCatSearch(e.target.value)}
+                              className="h-7 text-xs"
+                            />
+                          </div>
+                          <div className="max-h-64 overflow-auto">
+                            {categories.length === 0 && (
+                              <div className="text-xs text-muted-foreground p-2">Aucune catégorie</div>
+                            )}
+                            {categories
+                              .filter((c) => c.name.toLowerCase().includes(catSearch.toLowerCase()))
+                              .map((c) => (
+                                <button
+                                  key={c.id}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                  onClick={() => {
+                                    updateCell(id!, ri, ci, { categoryId: c.id });
+                                    setCatPopover(null);
+                                    setCatSearch('');
+                                  }}
+                                >
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                                  <span className="truncate">{c.name}</span>
+                                </button>
+                              ))}
+                            {cell.categoryId && (
+                              <button
+                                className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left border-t border-border mt-1 pt-2"
+                                onClick={() => {
+                                  updateCell(id!, ri, ci, { categoryId: undefined });
+                                  setCatPopover(null);
+                                  setCatSearch('');
+                                }}
+                              >
+                                <X className="h-3 w-3" /> Retirer la catégorie
+                              </button>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
@@ -428,55 +338,5 @@ export default function StorePlanEditor() {
         </table>
       </div>
     </div>
-  );
-}
-
-function CategoryPicker({
-  categories, catSearch, setCatSearch, currentId, onPick, onClear,
-}: {
-  categories: Category[];
-  catSearch: string;
-  setCatSearch: (v: string) => void;
-  currentId?: string;
-  onPick: (id: string) => void;
-  onClear: () => void;
-}) {
-  return (
-    <>
-      <div className="p-1">
-        <Input
-          autoFocus
-          placeholder="Rechercher..."
-          value={catSearch}
-          onChange={(e) => setCatSearch(e.target.value)}
-          className="h-7 text-xs"
-        />
-      </div>
-      <div className="max-h-64 overflow-auto">
-        {categories.length === 0 && (
-          <div className="text-xs text-muted-foreground p-2">Aucune catégorie</div>
-        )}
-        {categories
-          .filter((c) => c.name.toLowerCase().includes(catSearch.toLowerCase()))
-          .map((c) => (
-            <button
-              key={c.id}
-              className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
-              onClick={() => onPick(c.id)}
-            >
-              <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
-              <span className="truncate">{c.name}</span>
-            </button>
-          ))}
-        {currentId && (
-          <button
-            className="w-full flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left border-t border-border mt-1 pt-2"
-            onClick={onClear}
-          >
-            <X className="h-3 w-3" /> Retirer la catégorie
-          </button>
-        )}
-      </div>
-    </>
   );
 }
