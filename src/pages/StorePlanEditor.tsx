@@ -298,8 +298,7 @@ export default function StorePlanEditor() {
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className={`border border-border p-0 overflow-hidden ${selected ? 'ring-2 ring-primary ring-inset' : ''}`}
-                        onMouseDown={() => { if (mode === 'select') handleMouseDown(ri, ci, cell); }}
+                        className="border border-border p-0 overflow-hidden"
                       >
                         <div className={`flex ${flexDir} w-full h-full`}>
                           {children.map((sub, sIdx) => {
