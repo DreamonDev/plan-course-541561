@@ -192,7 +192,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (hasCloudData) {
       applyingRemote = true;
       set({
-        stores: (() => { const r = repairAllStores(cloud.stores ?? []); console.log('[repair] applied to', r.length, 'stores'); return r; })(),
+        stores: repairAllStores(cloud.stores ?? []),
         categories: cloud.categories ?? [],
         shoppingLists: cloud.shoppingLists ?? [],
         defaultStoreId: cloud.defaultStoreId ?? null,
