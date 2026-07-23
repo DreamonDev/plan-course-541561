@@ -15,6 +15,12 @@ export interface Cell {
   merged?: boolean; // true if consumed by another cell's merge
   mergeParent?: { row: number; col: number };
   mergeSpan?: { rows: number; cols: number }; // only on top-left of merged group
+  split?: { direction: 'horizontal' | 'vertical'; children: [SubCell, SubCell] };
+}
+
+export interface SubCell {
+  type: 'empty' | 'wall' | 'aisle';
+  categoryId?: string;
 }
 
 export interface Category {
