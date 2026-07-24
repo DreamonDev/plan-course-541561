@@ -75,6 +75,9 @@ function updateAtPath(
     children[head] = { ...target, split: updateAtPath(target.split, rest as (0 | 1)[], updater) };
   }
   return { ...split, children };
+}
+
+
 
 function createStore(name: string): Store {
   const rows = 5;
