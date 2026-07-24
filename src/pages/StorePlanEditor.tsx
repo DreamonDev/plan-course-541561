@@ -289,9 +289,7 @@ export default function StorePlanEditor() {
                     colSpan: span?.cols,
                     rowSpan: span?.rows,
                     style: {
-                      width: store.colWidths[ci],
                       height: store.rowHeights[ri],
-                      minWidth: store.colWidths[ci],
                     } as React.CSSProperties,
                     onMouseEnter: () => handleMouseEnter(ri, ci),
                   };
