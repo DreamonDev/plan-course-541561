@@ -464,6 +464,36 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }),
     })),
 
+  updateSubCellPath: (storeId, row, col, path, update) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split || path.length === 0) return st;
+        const newSplit = updateAtPath(src.split, path, (sub) => ({ ...sub, ...update }));
+        cells[row][col] = { ...src, split: newSplit };
+        return { ...st, cells };
+      }),
+    })),
+
+  splitSubCellPath: (storeId, row, col, path, direction) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split || path.length === 0) return st;
+        const newSplit = updateAtPath(src.split, path, (sub) => ({
+          type: 'empty',
+          categoryId: undefined,
+          split: { direction, children: [{ type: sub.type, categoryId: sub.categoryId }, { type: 'empty' }] },
+        }));
+        cells[row][col] = { ...src, split: newSplit };
+        return { ...st, cells };
+      }),
+    })),
+
   addCategory: (name, color) =>
     set((s) => ({
       categories: [...s.categories, { id: crypto.randomUUID(), name, color }],
