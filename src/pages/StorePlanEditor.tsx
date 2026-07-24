@@ -46,8 +46,8 @@ const modeConfig = [
   { mode: 'erase' as EditorMode, icon: Eraser, label: 'Effacer' },
 ];
 
-type CatPopover = { r: number; c: number; sub?: 0 | 1 } | null;
-type SplitPopover = { r: number; c: number } | null;
+type CatPopover = { r: number; c: number; path?: (0 | 1)[] } | null;
+type SplitPopover = { r: number; c: number; path?: (0 | 1)[] } | null;
 
 export default function StorePlanEditor() {
   const { id } = useParams<{ id: string }>();
