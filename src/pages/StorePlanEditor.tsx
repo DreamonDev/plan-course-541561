@@ -57,7 +57,7 @@ export default function StorePlanEditor() {
   const {
     updateCell, setEntrance, addRow, removeRow, addCol, removeCol,
     mergeCells, unmergeCells, updateColWidth, updateRowHeight,
-    splitCell, unsplitCell, updateSubCell,
+    splitCell, unsplitCell, updateSubCell, updateSubCellPath, splitSubCellPath,
   } = useAppStore();
 
   const [mode, setMode] = useState<EditorMode>('select');
@@ -92,27 +92,28 @@ export default function StorePlanEditor() {
     }
   }, [id, mode, updateCell, setEntrance]);
 
-  const applyModeToSub = useCallback((row: number, col: number, sub: 0 | 1, cur: SubCell) => {
+  const applyModeToSub = useCallback((row: number, col: number, path: (0 | 1)[], cur: SubCell) => {
     if (!id) return;
     switch (mode) {
       case 'wall':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
         break;
       case 'aisle':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
         break;
       case 'category':
-        setCatPopover({ r: row, c: col, sub });
+        setCatPopover({ r: row, c: col, path });
         break;
       case 'erase':
-        updateSubCell(id, row, col, sub, { type: 'empty', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: 'empty', categoryId: undefined, split: undefined });
+        break;
+      case 'split':
+        setSplitPopover({ r: row, c: col, path });
         break;
       case 'entrance':
-      case 'split':
-        // not supported on sub-cells
         break;
     }
-  }, [id, mode, updateSubCell]);
+  }, [id, mode, updateSubCellPath]);
 
   const handleMouseDown = (row: number, col: number, cur: Cell) => {
     if (mode === 'select') {
