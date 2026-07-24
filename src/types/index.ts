@@ -21,6 +21,7 @@ export interface Cell {
 export interface SubCell {
   type: 'empty' | 'wall' | 'aisle';
   categoryId?: string;
+  split?: { direction: 'horizontal' | 'vertical'; children: [SubCell, SubCell] };
 }
 
 export interface Category {
