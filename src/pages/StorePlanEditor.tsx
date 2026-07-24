@@ -238,14 +238,20 @@ export default function StorePlanEditor() {
       </div>
 
       <div
-        className="flex-1 overflow-auto p-4"
+        className="flex-1 p-4"
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        <div style={{ display: 'inline-block', minWidth: '100%' }}>
+        <div className="w-full overflow-x-auto overflow-y-auto max-h-[80vh] relative isolation-isolate">
         <table
           className="border-collapse select-none"
-          style={{ tableLayout: 'fixed', width: 'max-content', minWidth: store.colWidths.reduce((a, b) => a + b, 32) }}
+          style={{
+            tableLayout: 'fixed',
+            width: 'max-content',
+            minWidth: 'max-content',
+            willChange: 'transform',
+            transform: 'translateZ(0)',
+          }}
         >
           <colgroup>
             <col style={{ width: 32 }} />
@@ -303,7 +309,7 @@ export default function StorePlanEditor() {
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className="border border-border p-0 overflow-hidden"
+                        className="border border-border p-0"
                       >
                         <div className={`flex ${flexDir} w-full h-full`}>
                           {children.map((sub, sIdx) => {
@@ -322,7 +328,7 @@ export default function StorePlanEditor() {
                                     style={{ backgroundColor: bg }}
                                     className={`flex-1 flex items-center justify-center cursor-pointer border-border ${
                                       direction === 'vertical' ? (idx === 0 ? 'border-r' : '') : (idx === 0 ? 'border-b' : '')
-                                    } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''} overflow-hidden`}
+                                    } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''}`}
                                     onMouseDown={(e) => {
                                       e.stopPropagation();
                                       if (mode === 'select') return; // sub-cells not selectable
@@ -374,7 +380,7 @@ export default function StorePlanEditor() {
                     <td
                       {...commonTd}
                       style={{ ...commonTd.style, backgroundColor: bgColor }}
-                      className={`border border-border text-center cursor-pointer transition-colors overflow-hidden ${
+                      className={`border border-border text-center cursor-pointer transition-colors ${
                         selected ? 'ring-2 ring-primary ring-inset' : ''
                       } ${isEntrance ? 'text-lg' : isCategorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
                       onMouseDown={() => handleMouseDown(ri, ci, cell)}
