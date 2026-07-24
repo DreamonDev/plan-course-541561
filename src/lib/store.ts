@@ -60,6 +60,22 @@ function createGrid(rows: number, cols: number): Cell[][] {
   );
 }
 
+function updateAtPath(
+  split: NonNullable<SubCell['split']>,
+  path: (0 | 1)[],
+  updater: (sub: SubCell) => SubCell,
+): NonNullable<SubCell['split']> {
+  const [head, ...rest] = path;
+  const children = [split.children[0], split.children[1]] as [SubCell, SubCell];
+  const target = children[head];
+  if (rest.length === 0) {
+    children[head] = updater(target);
+  } else {
+    if (!target.split) return split;
+    children[head] = { ...target, split: updateAtPath(target.split, rest as (0 | 1)[], updater) };
+  }
+  return { ...split, children };
+
 function createStore(name: string): Store {
   const rows = 5;
   const cols = 10;
