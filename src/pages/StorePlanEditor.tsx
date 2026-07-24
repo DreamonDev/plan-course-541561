@@ -46,8 +46,8 @@ const modeConfig = [
   { mode: 'erase' as EditorMode, icon: Eraser, label: 'Effacer' },
 ];
 
-type CatPopover = { r: number; c: number; sub?: 0 | 1 } | null;
-type SplitPopover = { r: number; c: number } | null;
+type CatPopover = { r: number; c: number; path?: (0 | 1)[] } | null;
+type SplitPopover = { r: number; c: number; path?: (0 | 1)[] } | null;
 
 export default function StorePlanEditor() {
   const { id } = useParams<{ id: string }>();
@@ -57,7 +57,7 @@ export default function StorePlanEditor() {
   const {
     updateCell, setEntrance, addRow, removeRow, addCol, removeCol,
     mergeCells, unmergeCells, updateColWidth, updateRowHeight,
-    splitCell, unsplitCell, updateSubCell,
+    splitCell, unsplitCell, updateSubCell, updateSubCellPath, splitSubCellPath,
   } = useAppStore();
 
   const [mode, setMode] = useState<EditorMode>('select');
@@ -92,27 +92,28 @@ export default function StorePlanEditor() {
     }
   }, [id, mode, updateCell, setEntrance]);
 
-  const applyModeToSub = useCallback((row: number, col: number, sub: 0 | 1, cur: SubCell) => {
+  const applyModeToSub = useCallback((row: number, col: number, path: (0 | 1)[], cur: SubCell) => {
     if (!id) return;
     switch (mode) {
       case 'wall':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: cur.type === 'wall' ? 'empty' : 'wall', categoryId: undefined });
         break;
       case 'aisle':
-        updateSubCell(id, row, col, sub, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
         break;
       case 'category':
-        setCatPopover({ r: row, c: col, sub });
+        setCatPopover({ r: row, c: col, path });
         break;
       case 'erase':
-        updateSubCell(id, row, col, sub, { type: 'empty', categoryId: undefined });
+        updateSubCellPath(id, row, col, path, { type: 'empty', categoryId: undefined, split: undefined });
+        break;
+      case 'split':
+        setSplitPopover({ r: row, c: col, path });
         break;
       case 'entrance':
-      case 'split':
-        // not supported on sub-cells
         break;
     }
-  }, [id, mode, updateSubCell]);
+  }, [id, mode, updateSubCellPath]);
 
   const handleMouseDown = (row: number, col: number, cur: Cell) => {
     if (mode === 'select') {
@@ -288,8 +289,8 @@ export default function StorePlanEditor() {
                   const span = cell.mergeSpan;
                   const isEntrance = store.entrance?.row === ri && store.entrance?.col === ci;
                   const selected = isInSelection(ri, ci);
-                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.sub === undefined;
-                  const isSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci;
+                  const isCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.path === undefined;
+                  const isSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci && splitPopover?.path === undefined;
 
                   const commonTd = {
                     key: ci,
@@ -303,66 +304,101 @@ export default function StorePlanEditor() {
 
                   // ---- Split cell rendering ----
                   if (cell.split) {
-                    const { direction, children } = cell.split;
-                    const flexDir = direction === 'vertical' ? 'flex-row' : 'flex-col';
+                    const renderSubTree = (sub: SubCell, path: (0 | 1)[]): JSX.Element => {
+                      if (sub.split) {
+                        const flexDir = sub.split.direction === 'vertical' ? 'flex-row' : 'flex-col';
+                        return (
+                          <div className={`flex ${flexDir} w-full h-full`}>
+                            {sub.split.children.map((child, sIdx) => {
+                              const idx = sIdx as 0 | 1;
+                              const isBorder = sub.split!.direction === 'vertical'
+                                ? (idx === 0 ? 'border-r border-border' : '')
+                                : (idx === 0 ? 'border-b border-border' : '');
+                              return (
+                                <div key={idx} className={`flex-1 min-w-0 min-h-0 ${isBorder}`}>
+                                  {renderSubTree(child, [...path, idx])}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                      const { bg, text, categorized } = renderSubVisual(sub);
+                      const pathKey = path.join('-');
+                      const isSubCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.path?.join('-') === pathKey;
+                      const isSubSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci && splitPopover?.path?.join('-') === pathKey;
+                      return (
+                        <div
+                          style={{ backgroundColor: bg }}
+                          className={`w-full h-full flex items-center justify-center cursor-pointer relative ${
+                            categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'
+                          }`}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            if (mode === 'select') return;
+                            applyModeToSub(ri, ci, path, sub);
+                          }}
+                        >
+                          <span className="truncate block px-0.5 leading-tight pointer-events-none">
+                            {text}
+                          </span>
+                          {/* Invisible popover anchors — trigger doesn't intercept clicks on the visible area */}
+                          <Popover open={isSubCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
+                            <PopoverTrigger asChild>
+                              <span className="sr-only absolute inset-0 pointer-events-none">cat-anchor</span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-1" align="start">
+                              <CategoryPicker
+                                categories={categories}
+                                catSearch={catSearch}
+                                setCatSearch={setCatSearch}
+                                currentId={sub.categoryId}
+                                onPick={(cid) => {
+                                  updateSubCellPath(id!, ri, ci, path, { categoryId: cid });
+                                  setCatPopover(null); setCatSearch('');
+                                }}
+                                onClear={() => {
+                                  updateSubCellPath(id!, ri, ci, path, { categoryId: undefined });
+                                  setCatPopover(null); setCatSearch('');
+                                }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Popover open={isSubSplitOpen} onOpenChange={(o) => { if (!o) setSplitPopover(null); }}>
+                            <PopoverTrigger asChild>
+                              <span className="sr-only absolute inset-0 pointer-events-none">split-anchor</span>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2" align="start">
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                  onClick={() => { splitSubCellPath(id!, ri, ci, path, 'horizontal'); setSplitPopover(null); }}
+                                >
+                                  <SplitSquareVertical className="h-3.5 w-3.5" /> Horizontalement
+                                </button>
+                                <button
+                                  className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent text-left"
+                                  onClick={() => { splitSubCellPath(id!, ri, ci, path, 'vertical'); setSplitPopover(null); }}
+                                >
+                                  <SplitSquareHorizontal className="h-3.5 w-3.5" /> Verticalement
+                                </button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      );
+                    };
                     return (
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
                         className="border border-border p-0"
                       >
-                        <div className={`flex ${flexDir} w-full h-full`}>
-                          {children.map((sub, sIdx) => {
-                            const idx = sIdx as 0 | 1;
-                            const { bg, text, categorized } = renderSubVisual(sub);
-                            const isSubCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.sub === idx;
-                            const showEntranceIcon = isEntrance && idx === 0;
-                            return (
-                              <Popover
-                                key={idx}
-                                open={isSubCatOpen}
-                                onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <div
-                                    style={{ backgroundColor: bg }}
-                                    className={`flex-1 flex items-center justify-center cursor-pointer border-border ${
-                                      direction === 'vertical' ? (idx === 0 ? 'border-r' : '') : (idx === 0 ? 'border-b' : '')
-                                    } ${categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'} ${showEntranceIcon ? 'text-lg' : ''}`}
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      if (mode === 'select') return; // sub-cells not selectable
-                                      applyModeToSub(ri, ci, idx, sub);
-                                    }}
-                                  >
-                                    <span className="truncate block px-0.5 leading-tight">
-                                      {showEntranceIcon ? '🚪' : text}
-                                    </span>
-                                  </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-56 p-1" align="start">
-                                  <CategoryPicker
-                                    categories={categories}
-                                    catSearch={catSearch}
-                                    setCatSearch={setCatSearch}
-                                    currentId={sub.categoryId}
-                                    onPick={(cid) => {
-                                      updateSubCell(id!, ri, ci, idx, { categoryId: cid });
-                                      setCatPopover(null); setCatSearch('');
-                                    }}
-                                    onClear={() => {
-                                      updateSubCell(id!, ri, ci, idx, { categoryId: undefined });
-                                      setCatPopover(null); setCatSearch('');
-                                    }}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            );
-                          })}
-                        </div>
+                        {renderSubTree({ type: cell.type, categoryId: cell.categoryId, split: cell.split }, [])}
                       </td>
                     );
                   }
+
 
                   // ---- Regular cell rendering ----
                   const cat = cell.categoryId ? categories.find((c) => c.id === cell.categoryId) : null;

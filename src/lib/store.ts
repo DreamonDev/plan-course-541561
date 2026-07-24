@@ -60,6 +60,25 @@ function createGrid(rows: number, cols: number): Cell[][] {
   );
 }
 
+function updateAtPath(
+  split: NonNullable<SubCell['split']>,
+  path: (0 | 1)[],
+  updater: (sub: SubCell) => SubCell,
+): NonNullable<SubCell['split']> {
+  const [head, ...rest] = path;
+  const children = [split.children[0], split.children[1]] as [SubCell, SubCell];
+  const target = children[head];
+  if (rest.length === 0) {
+    children[head] = updater(target);
+  } else {
+    if (!target.split) return split;
+    children[head] = { ...target, split: updateAtPath(target.split, rest as (0 | 1)[], updater) };
+  }
+  return { ...split, children };
+}
+
+
+
 function createStore(name: string): Store {
   const rows = 5;
   const cols = 10;
@@ -110,6 +129,8 @@ interface AppState extends PersistedState {
   splitCell: (storeId: string, row: number, col: number, direction: 'horizontal' | 'vertical') => void;
   unsplitCell: (storeId: string, row: number, col: number) => void;
   updateSubCell: (storeId: string, row: number, col: number, subIndex: 0 | 1, update: Partial<SubCell>) => void;
+  updateSubCellPath: (storeId: string, row: number, col: number, path: (0 | 1)[], update: Partial<SubCell>) => void;
+  splitSubCellPath: (storeId: string, row: number, col: number, path: (0 | 1)[], direction: 'horizontal' | 'vertical') => void;
 
   // Categories
   addCategory: (name: string, color: string) => void;
@@ -458,6 +479,36 @@ export const useAppStore = create<AppState>()((set, get) => ({
         const children = [...src.split.children] as [SubCell, SubCell];
         children[subIndex] = { ...children[subIndex], ...update };
         cells[row][col] = { ...src, split: { ...src.split, children } };
+        return { ...st, cells };
+      }),
+    })),
+
+  updateSubCellPath: (storeId, row, col, path, update) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split || path.length === 0) return st;
+        const newSplit = updateAtPath(src.split, path, (sub) => ({ ...sub, ...update }));
+        cells[row][col] = { ...src, split: newSplit };
+        return { ...st, cells };
+      }),
+    })),
+
+  splitSubCellPath: (storeId, row, col, path, direction) =>
+    set((s) => ({
+      stores: s.stores.map((st) => {
+        if (st.id !== storeId) return st;
+        const cells = st.cells.map((r) => r.map((c) => ({ ...c })));
+        const src = cells[row][col];
+        if (!src.split || path.length === 0) return st;
+        const newSplit = updateAtPath(src.split, path, (sub) => ({
+          type: 'empty',
+          categoryId: undefined,
+          split: { direction, children: [{ type: sub.type, categoryId: sub.categoryId }, { type: 'empty' }] },
+        }));
+        cells[row][col] = { ...src, split: newSplit };
         return { ...st, cells };
       }),
     })),
