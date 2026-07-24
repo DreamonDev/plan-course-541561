@@ -110,6 +110,8 @@ interface AppState extends PersistedState {
   splitCell: (storeId: string, row: number, col: number, direction: 'horizontal' | 'vertical') => void;
   unsplitCell: (storeId: string, row: number, col: number) => void;
   updateSubCell: (storeId: string, row: number, col: number, subIndex: 0 | 1, update: Partial<SubCell>) => void;
+  updateSubCellPath: (storeId: string, row: number, col: number, path: (0 | 1)[], update: Partial<SubCell>) => void;
+  splitSubCellPath: (storeId: string, row: number, col: number, path: (0 | 1)[], direction: 'horizontal' | 'vertical') => void;
 
   // Categories
   addCategory: (name: string, color: string) => void;
