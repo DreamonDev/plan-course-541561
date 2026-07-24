@@ -244,13 +244,19 @@ export default function StorePlanEditor() {
       >
         <table
           className="border-collapse select-none"
-          style={{ tableLayout: 'fixed', width: store.colWidths.reduce((a, b) => a + b, 0) + 32 }}
+          style={{ tableLayout: 'fixed', width: store.colWidths.reduce((a, b) => a + b, 32) }}
         >
+          <colgroup>
+            <col style={{ width: 32 }} />
+            {store.colWidths.map((w, ci) => (
+              <col key={ci} style={{ width: w }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
-              <th className="w-8" />
+              <th />
               {store.colWidths.map((w, ci) => (
-                <th key={ci} style={{ width: w }} className="p-0">
+                <th key={ci} className="p-0">
                   <DimInput
                     value={w}
                     onCommit={(v) => updateColWidth(store.id, ci, v)}
@@ -283,9 +289,7 @@ export default function StorePlanEditor() {
                     colSpan: span?.cols,
                     rowSpan: span?.rows,
                     style: {
-                      width: store.colWidths[ci],
                       height: store.rowHeights[ri],
-                      minWidth: store.colWidths[ci],
                     } as React.CSSProperties,
                     onMouseEnter: () => handleMouseEnter(ri, ci),
                   };
