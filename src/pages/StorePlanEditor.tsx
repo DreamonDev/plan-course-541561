@@ -242,9 +242,10 @@ export default function StorePlanEditor() {
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        <div style={{ display: 'inline-block', minWidth: '100%' }}>
         <table
           className="border-collapse select-none"
-          style={{ tableLayout: 'fixed', width: store.colWidths.reduce((a, b) => a + b, 32) }}
+          style={{ tableLayout: 'fixed', width: 'max-content', minWidth: store.colWidths.reduce((a, b) => a + b, 32) }}
         >
           <colgroup>
             <col style={{ width: 32 }} />
