@@ -537,13 +537,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
       categories: s.categories.filter((c) => c.id !== id),
     })),
 
-  addShoppingList: (name, storeId) =>
+  addArticle: (name, categoryId) => {
+    const article: Article = { id: crypto.randomUUID(), name, categoryId };
+    set((s) => ({ articles: [...s.articles, article] }));
+    return article;
+  },
+
+  updateArticle: (id, updates) =>
     set((s) => ({
-      shoppingLists: [
-        ...s.shoppingLists,
-        { id: crypto.randomUUID(), name, storeId, items: [] },
-      ],
+      articles: s.articles.map((a) => (a.id === id ? { ...a, ...updates } : a)),
     })),
+
+  deleteArticle: (id) =>
+    set((s) => ({ articles: s.articles.filter((a) => a.id !== id) })),
+
+  addShoppingList: (name, storeId) => {
+    const list: ShoppingList = { id: crypto.randomUUID(), name, storeId, items: [] };
+    set((s) => ({ shoppingLists: [...s.shoppingLists, list] }));
+    return list.id;
+  },
+
+  ensureListForStore: (storeId) => {
+    const existing = get().shoppingLists.find((l) => l.storeId === storeId);
+    if (existing) return existing.id;
+    const store = get().stores.find((s) => s.id === storeId);
+    return get().addShoppingList(store?.name ?? 'Liste', storeId);
+  },
 
   updateShoppingList: (id, updates) =>
     set((s) => ({
