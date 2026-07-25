@@ -407,7 +407,8 @@ export default function StorePlanEditor() {
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className="border border-border p-0"
+                        className={`border border-border p-0 ${selected ? 'ring-2 ring-primary ring-inset' : ''}`}
+                        onMouseDown={mode === 'select' ? () => handleMouseDown(ri, ci, cell) : undefined}
                       >
                         {renderSubTree({ type: cell.type, categoryId: cell.categoryId, split: cell.split }, [])}
                       </td>
