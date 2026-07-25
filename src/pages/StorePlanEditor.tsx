@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode, Cell, SubCell, Category } from '@/types';
