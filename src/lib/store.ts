@@ -155,6 +155,7 @@ function extractPersisted(s: AppState): PersistedState {
   return {
     stores: s.stores,
     categories: s.categories,
+    articles: s.articles,
     shoppingLists: s.shoppingLists,
     defaultStoreId: s.defaultStoreId,
   };
