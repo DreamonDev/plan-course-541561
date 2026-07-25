@@ -648,6 +648,7 @@ function readLocalStorage(): PersistedState | null {
     return {
       stores: s.stores ?? [],
       categories: s.categories ?? [],
+      articles: s.articles ?? [],
       shoppingLists: s.shoppingLists ?? [],
       defaultStoreId: s.defaultStoreId ?? null,
     };
