@@ -10,16 +10,16 @@ export interface Store {
 }
 
 export interface Cell {
-  type: 'empty' | 'wall' | 'aisle';
+  type: 'empty' | 'wall' | 'aisle' | 'checkout';
   categoryId?: string;
-  merged?: boolean; // true if consumed by another cell's merge
+  merged?: boolean;
   mergeParent?: { row: number; col: number };
-  mergeSpan?: { rows: number; cols: number }; // only on top-left of merged group
+  mergeSpan?: { rows: number; cols: number };
   split?: { direction: 'horizontal' | 'vertical'; children: [SubCell, SubCell] };
 }
 
 export interface SubCell {
-  type: 'empty' | 'wall' | 'aisle';
+  type: 'empty' | 'wall' | 'aisle' | 'checkout';
   categoryId?: string;
   split?: { direction: 'horizontal' | 'vertical'; children: [SubCell, SubCell] };
 }
@@ -27,7 +27,13 @@ export interface SubCell {
 export interface Category {
   id: string;
   name: string;
-  color: string; // hex color
+  color: string;
+}
+
+export interface Article {
+  id: string;
+  name: string;
+  categoryId?: string;
 }
 
 export interface ShoppingList {
@@ -45,4 +51,4 @@ export interface ShoppingItem {
   checked: boolean;
 }
 
-export type EditorMode = 'select' | 'wall' | 'aisle' | 'entrance' | 'category' | 'split' | 'erase';
+export type EditorMode = 'select' | 'wall' | 'aisle' | 'entrance' | 'category' | 'split' | 'checkout' | 'erase';

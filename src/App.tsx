@@ -8,8 +8,8 @@ import { Layout } from "@/components/Layout";
 import StoresPage from "./pages/StoresPage";
 import StorePlanEditor from "./pages/StorePlanEditor";
 import CategoriesPage from "./pages/CategoriesPage";
+import ArticlesPage from "./pages/ArticlesPage";
 import ShoppingListsPage from "./pages/ShoppingListsPage";
-import ShoppingListDetail from "./pages/ShoppingListDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,8 +27,8 @@ const App = () => (
               <Route path="/stores" element={<StoresPage />} />
               <Route path="/stores/:id/plan" element={<StorePlanEditor />} />
               <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/articles" element={<ArticlesPage />} />
               <Route path="/lists" element={<ShoppingListsPage />} />
-              <Route path="/lists/:id" element={<ShoppingListDetail />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

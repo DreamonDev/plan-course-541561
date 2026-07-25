@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
-import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem } from '@/types';
+import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Article } from '@/types';
 
 const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
@@ -97,6 +97,7 @@ function createStore(name: string): Store {
 interface PersistedState {
   stores: Store[];
   categories: Category[];
+  articles: Article[];
   shoppingLists: ShoppingList[];
   defaultStoreId: string | null;
 }
@@ -137,8 +138,14 @@ interface AppState extends PersistedState {
   updateCategory: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;
   deleteCategory: (id: string) => void;
 
+  // Articles (global catalog)
+  addArticle: (name: string, categoryId?: string) => Article;
+  updateArticle: (id: string, updates: Partial<Omit<Article, 'id'>>) => void;
+  deleteArticle: (id: string) => void;
+
   // Shopping Lists
-  addShoppingList: (name: string, storeId: string) => void;
+  addShoppingList: (name: string, storeId: string) => string;
+  ensureListForStore: (storeId: string) => string;
   updateShoppingList: (id: string, updates: Partial<Omit<ShoppingList, 'id' | 'items'>>) => void;
   deleteShoppingList: (id: string) => void;
   setDefaultStore: (storeId: string) => void;
@@ -154,6 +161,7 @@ function extractPersisted(s: AppState): PersistedState {
   return {
     stores: s.stores,
     categories: s.categories,
+    articles: s.articles,
     shoppingLists: s.shoppingLists,
     defaultStoreId: s.defaultStoreId,
   };
@@ -186,6 +194,7 @@ function scheduleSave(state: PersistedState) {
 export const useAppStore = create<AppState>()((set, get) => ({
   stores: [],
   categories: [],
+  articles: [],
   shoppingLists: [],
   defaultStoreId: null,
   _loaded: false,
@@ -215,6 +224,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({
         stores: repairAllStores(cloud.stores ?? []),
         categories: cloud.categories ?? [],
+        articles: cloud.articles ?? [],
         shoppingLists: cloud.shoppingLists ?? [],
         defaultStoreId: cloud.defaultStoreId ?? null,
         _loaded: true,
@@ -223,20 +233,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
       lastSavedJson = JSON.stringify(extractPersisted(get()));
       applyingRemote = false;
     } else {
-      // Cloud empty — try importing from localStorage automatically
       const local = readLocalStorage();
       if (local) {
         applyingRemote = true;
         set({
           stores: local.stores ?? [],
           categories: local.categories ?? [],
+          articles: local.articles ?? [],
           shoppingLists: local.shoppingLists ?? [],
           defaultStoreId: local.defaultStoreId ?? null,
           _loaded: true,
           _syncing: false,
         });
         applyingRemote = false;
-        // push to cloud
         await saveToCloud(extractPersisted(get()));
       } else {
         set({ _loaded: true, _syncing: false });
@@ -244,7 +253,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
     }
 
-    // Realtime subscription for cross-device sync
     supabase
       .channel('app_state_sync')
       .on(
@@ -254,11 +262,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
           const newRow = payload.new as { data?: PersistedState } | null;
           if (!newRow?.data) return;
           const incoming = JSON.stringify(newRow.data);
-          if (incoming === lastSavedJson) return; // our own write
+          if (incoming === lastSavedJson) return;
           applyingRemote = true;
           set({
             stores: repairAllStores(newRow.data.stores ?? []),
             categories: newRow.data.categories ?? [],
+            articles: newRow.data.articles ?? [],
             shoppingLists: newRow.data.shoppingLists ?? [],
             defaultStoreId: newRow.data.defaultStoreId ?? null,
           });
@@ -273,10 +282,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const local = readLocalStorage();
     if (!local) return { imported: false };
     const current = get();
-    // Merge: append local items that don't exist
     const merged: PersistedState = {
       stores: [...current.stores, ...(local.stores ?? []).filter((s) => !current.stores.some((cs) => cs.id === s.id))],
       categories: [...current.categories, ...(local.categories ?? []).filter((c) => !current.categories.some((cc) => cc.id === c.id))],
+      articles: [...current.articles, ...(local.articles ?? []).filter((a) => !current.articles.some((ca) => ca.id === a.id))],
       shoppingLists: [...current.shoppingLists, ...(local.shoppingLists ?? []).filter((l) => !current.shoppingLists.some((cl) => cl.id === l.id))],
       defaultStoreId: current.defaultStoreId ?? local.defaultStoreId ?? null,
     };
@@ -528,13 +537,32 @@ export const useAppStore = create<AppState>()((set, get) => ({
       categories: s.categories.filter((c) => c.id !== id),
     })),
 
-  addShoppingList: (name, storeId) =>
+  addArticle: (name, categoryId) => {
+    const article: Article = { id: crypto.randomUUID(), name, categoryId };
+    set((s) => ({ articles: [...s.articles, article] }));
+    return article;
+  },
+
+  updateArticle: (id, updates) =>
     set((s) => ({
-      shoppingLists: [
-        ...s.shoppingLists,
-        { id: crypto.randomUUID(), name, storeId, items: [] },
-      ],
+      articles: s.articles.map((a) => (a.id === id ? { ...a, ...updates } : a)),
     })),
+
+  deleteArticle: (id) =>
+    set((s) => ({ articles: s.articles.filter((a) => a.id !== id) })),
+
+  addShoppingList: (name, storeId) => {
+    const list: ShoppingList = { id: crypto.randomUUID(), name, storeId, items: [] };
+    set((s) => ({ shoppingLists: [...s.shoppingLists, list] }));
+    return list.id;
+  },
+
+  ensureListForStore: (storeId) => {
+    const existing = get().shoppingLists.find((l) => l.storeId === storeId);
+    if (existing) return existing.id;
+    const store = get().stores.find((s) => s.id === storeId);
+    return get().addShoppingList(store?.name ?? 'Liste', storeId);
+  },
 
   updateShoppingList: (id, updates) =>
     set((s) => ({
@@ -620,6 +648,7 @@ function readLocalStorage(): PersistedState | null {
     return {
       stores: s.stores ?? [],
       categories: s.categories ?? [],
+      articles: s.articles ?? [],
       shoppingLists: s.shoppingLists ?? [],
       defaultStoreId: s.defaultStoreId ?? null,
     };

@@ -1,4 +1,4 @@
-import { Store, Tags, ShoppingCart } from 'lucide-react';
+import { Store, Tags, ShoppingCart, Package } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -18,6 +18,7 @@ import {
 const navItems = [
   { title: 'Magasins', url: '/stores', icon: Store },
   { title: 'Catégories', url: '/categories', icon: Tags },
+  { title: 'Articles', url: '/articles', icon: Package },
   { title: 'Courses', url: '/lists', icon: ShoppingCart },
 ];
 

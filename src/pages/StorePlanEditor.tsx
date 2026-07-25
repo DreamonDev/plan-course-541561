@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/lib/store';
 import type { EditorMode, Cell, SubCell, Category } from '@/types';
@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
-  DoorOpen, Palette, Eraser, Merge, Ungroup, X, SplitSquareHorizontal, SplitSquareVertical
+  DoorOpen, Palette, Eraser, Merge, Ungroup, X, SplitSquareHorizontal, SplitSquareVertical,
+  ScanBarcode,
 } from 'lucide-react';
 
 function DimInput({ value, onCommit, className }: { value: number; onCommit: (v: number) => void; className?: string }) {
@@ -41,6 +42,7 @@ const modeConfig = [
   { mode: 'wall' as EditorMode, icon: Square, label: 'Mur' },
   { mode: 'aisle' as EditorMode, icon: StretchHorizontal, label: 'Allée' },
   { mode: 'entrance' as EditorMode, icon: DoorOpen, label: 'Entrée' },
+  { mode: 'checkout' as EditorMode, icon: ScanBarcode, label: 'Caisses' },
   { mode: 'category' as EditorMode, icon: Palette, label: 'Catégorie' },
   { mode: 'split' as EditorMode, icon: SplitSquareHorizontal, label: 'Diviser' },
   { mode: 'erase' as EditorMode, icon: Eraser, label: 'Effacer' },
@@ -76,6 +78,9 @@ export default function StorePlanEditor() {
       case 'aisle':
         updateCell(id, row, col, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
         break;
+      case 'checkout':
+        updateCell(id, row, col, { type: cur.type === 'checkout' ? 'empty' : 'checkout', categoryId: undefined });
+        break;
       case 'entrance':
         setEntrance(id, row, col);
         updateCell(id, row, col, { type: 'aisle' });
@@ -101,6 +106,9 @@ export default function StorePlanEditor() {
       case 'aisle':
         updateSubCellPath(id, row, col, path, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
         break;
+      case 'checkout':
+        updateSubCellPath(id, row, col, path, { type: cur.type === 'checkout' ? 'empty' : 'checkout', categoryId: undefined });
+        break;
       case 'category':
         setCatPopover({ r: row, c: col, path });
         break;
@@ -117,8 +125,6 @@ export default function StorePlanEditor() {
 
   const handleMouseDown = (row: number, col: number, cur: Cell) => {
     if (mode === 'select') {
-      // Split cells cannot participate in selection/merge (sub-cells are independent).
-      if (cur.split) return;
       setSelection({ start: { r: row, c: col }, end: { r: row, c: col } });
       setIsSelecting(true);
     } else if (!cur.split) {
@@ -170,12 +176,15 @@ export default function StorePlanEditor() {
     let bg = 'transparent';
     let text = '';
     let categorized = false;
+    let checkout = false;
     if (sub.type === 'wall') bg = 'hsl(var(--foreground) / 0.85)';
     else if (cat) { bg = cat.color; categorized = true; }
+    else if (sub.type === 'checkout') { bg = 'hsl(38 92% 55%)'; checkout = true; }
     else if (sub.type === 'aisle') bg = 'hsl(var(--card))';
     if (cat) text = cat.name;
+    else if (sub.type === 'checkout') text = 'Caisses';
     else if (sub.type === 'aisle') text = 'Allée';
-    return { bg, text, categorized };
+    return { bg, text, categorized, checkout };
   };
 
   return (
@@ -244,12 +253,14 @@ export default function StorePlanEditor() {
         onMouseLeave={handleMouseUp}
       >
         <div className="w-full overflow-x-auto overflow-y-auto max-h-[80vh] relative isolation-isolate">
+        {(() => { const totalW = 32 + store.colWidths.reduce((a, b) => a + b, 0); return (
         <table
+          lang="fr"
           className="border-collapse select-none"
           style={{
             tableLayout: 'fixed',
-            width: 'max-content',
-            minWidth: 'max-content',
+            width: totalW,
+            minWidth: totalW,
             willChange: 'transform',
             transform: 'translateZ(0)',
           }}
@@ -323,23 +334,27 @@ export default function StorePlanEditor() {
                           </div>
                         );
                       }
-                      const { bg, text, categorized } = renderSubVisual(sub);
+                      const { bg, text, categorized, checkout } = renderSubVisual(sub);
                       const pathKey = path.join('-');
                       const isSubCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.path?.join('-') === pathKey;
                       const isSubSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci && splitPopover?.path?.join('-') === pathKey;
                       return (
                         <div
                           style={{ backgroundColor: bg }}
-                          className={`w-full h-full flex items-center justify-center cursor-pointer relative ${
-                            categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'
+                          className={`w-full h-full flex items-center justify-center cursor-pointer relative overflow-hidden ${
+                            categorized || checkout ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'
                           }`}
                           onMouseDown={(e) => {
+                            if (mode === 'select') return; // let td handle selection
                             e.stopPropagation();
-                            if (mode === 'select') return;
                             applyModeToSub(ri, ci, path, sub);
                           }}
+                          onMouseEnter={() => handleMouseEnter(ri, ci)}
                         >
-                          <span className="truncate block px-0.5 leading-tight pointer-events-none">
+                          <span
+                            className="block px-0.5 leading-tight pointer-events-none text-center"
+                            style={{ overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}
+                          >
                             {text}
                           </span>
                           {/* Invisible popover anchors — trigger doesn't intercept clicks on the visible area */}
@@ -392,7 +407,8 @@ export default function StorePlanEditor() {
                       <td
                         {...commonTd}
                         style={{ ...commonTd.style, backgroundColor: 'transparent' }}
-                        className="border border-border p-0"
+                        className={`border border-border p-0 ${selected ? 'ring-2 ring-primary ring-inset' : ''}`}
+                        onMouseDown={mode === 'select' ? () => handleMouseDown(ri, ci, cell) : undefined}
                       >
                         {renderSubTree({ type: cell.type, categoryId: cell.categoryId, split: cell.split }, [])}
                       </td>
@@ -405,26 +421,32 @@ export default function StorePlanEditor() {
                   let bgColor = 'transparent';
                   let textContent = '';
                   let isCategorized = false;
+                  let isCheckout = false;
                   if (cell.type === 'wall') bgColor = 'hsl(var(--foreground) / 0.85)';
                   else if (cat) { bgColor = cat.color; isCategorized = true; }
+                  else if (cell.type === 'checkout') { bgColor = 'hsl(38 92% 55%)'; isCheckout = true; }
                   else if (cell.type === 'aisle') bgColor = 'hsl(var(--card))';
                   if (cat) textContent = cat.name;
+                  else if (cell.type === 'checkout') textContent = 'Caisses';
                   else if (cell.type === 'aisle') textContent = 'Allée';
                   if (isEntrance) textContent = '🚪';
 
                   return (
                     <td
                       {...commonTd}
-                      style={{ ...commonTd.style, backgroundColor: bgColor }}
+                      style={{ ...commonTd.style, backgroundColor: bgColor, overflow: 'hidden' }}
                       className={`border border-border text-center cursor-pointer transition-colors ${
                         selected ? 'ring-2 ring-primary ring-inset' : ''
-                      } ${isEntrance ? 'text-lg' : isCategorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
+                      } ${isEntrance ? 'text-lg' : (isCategorized || isCheckout) ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
                       onMouseDown={() => handleMouseDown(ri, ci, cell)}
                     >
                       {/* Category popover */}
                       <Popover open={isCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
                         <PopoverTrigger asChild>
-                          <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                          <span
+                            className="block px-0.5 leading-tight"
+                            style={{ overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}
+                          >{textContent}</span>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-1" align="start">
                           <CategoryPicker
@@ -473,6 +495,7 @@ export default function StorePlanEditor() {
             ))}
           </tbody>
         </table>
+        ); })()}
         </div>
       </div>
     </div>
@@ -489,10 +512,16 @@ function CategoryPicker({
   onPick: (id: string) => void;
   onClear: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <>
       <div className="p-1">
         <Input
+          ref={inputRef}
           autoFocus
           placeholder="Rechercher..."
           value={catSearch}
