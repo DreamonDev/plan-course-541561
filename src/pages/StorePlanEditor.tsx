@@ -78,6 +78,9 @@ export default function StorePlanEditor() {
       case 'aisle':
         updateCell(id, row, col, { type: cur.type === 'aisle' ? 'empty' : 'aisle', categoryId: undefined });
         break;
+      case 'checkout':
+        updateCell(id, row, col, { type: cur.type === 'checkout' ? 'empty' : 'checkout', categoryId: undefined });
+        break;
       case 'entrance':
         setEntrance(id, row, col);
         updateCell(id, row, col, { type: 'aisle' });
