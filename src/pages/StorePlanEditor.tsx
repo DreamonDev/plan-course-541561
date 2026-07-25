@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   ArrowLeft, Plus, Minus, MousePointer2, Square, StretchHorizontal,
-  DoorOpen, Palette, Eraser, Merge, Ungroup, X, SplitSquareHorizontal, SplitSquareVertical
+  DoorOpen, Palette, Eraser, Merge, Ungroup, X, SplitSquareHorizontal, SplitSquareVertical,
+  ScanBarcode,
 } from 'lucide-react';
 
 function DimInput({ value, onCommit, className }: { value: number; onCommit: (v: number) => void; className?: string }) {
