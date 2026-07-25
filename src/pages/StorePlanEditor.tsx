@@ -420,28 +420,34 @@ export default function StorePlanEditor() {
                   let bgColor = 'transparent';
                   let textContent = '';
                   let isCategorized = false;
+                  let isCheckout = false;
                   if (cell.type === 'wall') bgColor = 'hsl(var(--foreground) / 0.85)';
                   else if (cat) { bgColor = cat.color; isCategorized = true; }
+                  else if (cell.type === 'checkout') { bgColor = 'hsl(38 92% 55%)'; isCheckout = true; }
                   else if (cell.type === 'aisle') bgColor = 'hsl(var(--card))';
                   if (cat) textContent = cat.name;
+                  else if (cell.type === 'checkout') textContent = 'Caisses';
                   else if (cell.type === 'aisle') textContent = 'Allée';
                   if (isEntrance) textContent = '🚪';
 
                   return (
                     <td
                       {...commonTd}
-                      style={{ ...commonTd.style, backgroundColor: bgColor }}
+                      style={{ ...commonTd.style, backgroundColor: bgColor, overflow: 'hidden' }}
                       className={`border border-border text-center cursor-pointer transition-colors ${
                         selected ? 'ring-2 ring-primary ring-inset' : ''
-                      } ${isEntrance ? 'text-lg' : isCategorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
+                      } ${isEntrance ? 'text-lg' : (isCategorized || isCheckout) ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'}`}
                       onMouseDown={() => handleMouseDown(ri, ci, cell)}
                     >
                       {/* Category popover */}
                       <Popover open={isCatOpen} onOpenChange={(o) => { if (!o) { setCatPopover(null); setCatSearch(''); } }}>
                         <PopoverTrigger asChild>
-                          <span className="truncate block px-0.5 leading-tight">{textContent}</span>
+                          <span
+                            className="block px-0.5 leading-tight"
+                            style={{ overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}
+                          >{textContent}</span>
                         </PopoverTrigger>
-                        <PopoverContent className="w-56 p-1" align="start">
+                        <PopoverContent className="w-56 p-1" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
                           <CategoryPicker
                             categories={categories}
                             catSearch={catSearch}
