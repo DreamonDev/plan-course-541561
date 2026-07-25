@@ -253,12 +253,14 @@ export default function StorePlanEditor() {
         onMouseLeave={handleMouseUp}
       >
         <div className="w-full overflow-x-auto overflow-y-auto max-h-[80vh] relative isolation-isolate">
+        {(() => { const totalW = 32 + store.colWidths.reduce((a, b) => a + b, 0); return (
         <table
+          lang="fr"
           className="border-collapse select-none"
           style={{
             tableLayout: 'fixed',
-            width: 'max-content',
-            minWidth: 'max-content',
+            width: totalW,
+            minWidth: totalW,
             willChange: 'transform',
             transform: 'translateZ(0)',
           }}
