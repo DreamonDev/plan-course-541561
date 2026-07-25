@@ -138,8 +138,14 @@ interface AppState extends PersistedState {
   updateCategory: (id: string, updates: Partial<Omit<Category, 'id'>>) => void;
   deleteCategory: (id: string) => void;
 
+  // Articles (global catalog)
+  addArticle: (name: string, categoryId?: string) => Article;
+  updateArticle: (id: string, updates: Partial<Omit<Article, 'id'>>) => void;
+  deleteArticle: (id: string) => void;
+
   // Shopping Lists
-  addShoppingList: (name: string, storeId: string) => void;
+  addShoppingList: (name: string, storeId: string) => string;
+  ensureListForStore: (storeId: string) => string;
   updateShoppingList: (id: string, updates: Partial<Omit<ShoppingList, 'id' | 'items'>>) => void;
   deleteShoppingList: (id: string) => void;
   setDefaultStore: (storeId: string) => void;
