@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
-import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem } from '@/types';
+import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Article } from '@/types';
 
 const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
