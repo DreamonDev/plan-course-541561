@@ -511,10 +511,16 @@ function CategoryPicker({
   onPick: (id: string) => void;
   onClear: () => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <>
       <div className="p-1">
         <Input
+          ref={inputRef}
           autoFocus
           placeholder="Rechercher..."
           value={catSearch}
