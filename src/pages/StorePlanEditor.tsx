@@ -447,7 +447,7 @@ export default function StorePlanEditor() {
                             style={{ overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}
                           >{textContent}</span>
                         </PopoverTrigger>
-                        <PopoverContent className="w-56 p-1" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                        <PopoverContent className="w-56 p-1" align="start">
                           <CategoryPicker
                             categories={categories}
                             catSearch={catSearch}
