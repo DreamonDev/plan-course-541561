@@ -42,6 +42,7 @@ const modeConfig = [
   { mode: 'wall' as EditorMode, icon: Square, label: 'Mur' },
   { mode: 'aisle' as EditorMode, icon: StretchHorizontal, label: 'Allée' },
   { mode: 'entrance' as EditorMode, icon: DoorOpen, label: 'Entrée' },
+  { mode: 'checkout' as EditorMode, icon: ScanBarcode, label: 'Caisses' },
   { mode: 'category' as EditorMode, icon: Palette, label: 'Catégorie' },
   { mode: 'split' as EditorMode, icon: SplitSquareHorizontal, label: 'Diviser' },
   { mode: 'erase' as EditorMode, icon: Eraser, label: 'Effacer' },
