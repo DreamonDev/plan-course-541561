@@ -334,23 +334,27 @@ export default function StorePlanEditor() {
                           </div>
                         );
                       }
-                      const { bg, text, categorized } = renderSubVisual(sub);
+                      const { bg, text, categorized, checkout } = renderSubVisual(sub);
                       const pathKey = path.join('-');
                       const isSubCatOpen = catPopover?.r === ri && catPopover?.c === ci && catPopover?.path?.join('-') === pathKey;
                       const isSubSplitOpen = splitPopover?.r === ri && splitPopover?.c === ci && splitPopover?.path?.join('-') === pathKey;
                       return (
                         <div
                           style={{ backgroundColor: bg }}
-                          className={`w-full h-full flex items-center justify-center cursor-pointer relative ${
-                            categorized ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'
+                          className={`w-full h-full flex items-center justify-center cursor-pointer relative overflow-hidden ${
+                            categorized || checkout ? 'text-white font-bold text-xs' : 'text-[9px] text-muted-foreground'
                           }`}
                           onMouseDown={(e) => {
+                            if (mode === 'select') return; // let td handle selection
                             e.stopPropagation();
-                            if (mode === 'select') return;
                             applyModeToSub(ri, ci, path, sub);
                           }}
+                          onMouseEnter={() => handleMouseEnter(ri, ci)}
                         >
-                          <span className="truncate block px-0.5 leading-tight pointer-events-none">
+                          <span
+                            className="block px-0.5 leading-tight pointer-events-none text-center"
+                            style={{ overflowWrap: 'break-word', wordBreak: 'break-word', hyphens: 'auto' }}
+                          >
                             {text}
                           </span>
                           {/* Invisible popover anchors — trigger doesn't intercept clicks on the visible area */}
