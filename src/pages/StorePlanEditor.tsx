@@ -484,6 +484,7 @@ export default function StorePlanEditor() {
             ))}
           </tbody>
         </table>
+        ); })()}
         </div>
       </div>
     </div>
