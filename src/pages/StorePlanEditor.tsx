@@ -176,12 +176,15 @@ export default function StorePlanEditor() {
     let bg = 'transparent';
     let text = '';
     let categorized = false;
+    let checkout = false;
     if (sub.type === 'wall') bg = 'hsl(var(--foreground) / 0.85)';
     else if (cat) { bg = cat.color; categorized = true; }
+    else if (sub.type === 'checkout') { bg = 'hsl(38 92% 55%)'; checkout = true; }
     else if (sub.type === 'aisle') bg = 'hsl(var(--card))';
     if (cat) text = cat.name;
+    else if (sub.type === 'checkout') text = 'Caisses';
     else if (sub.type === 'aisle') text = 'Allée';
-    return { bg, text, categorized };
+    return { bg, text, categorized, checkout };
   };
 
   return (
