@@ -224,6 +224,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       set({
         stores: repairAllStores(cloud.stores ?? []),
         categories: cloud.categories ?? [],
+        articles: cloud.articles ?? [],
         shoppingLists: cloud.shoppingLists ?? [],
         defaultStoreId: cloud.defaultStoreId ?? null,
         _loaded: true,
@@ -232,20 +233,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
       lastSavedJson = JSON.stringify(extractPersisted(get()));
       applyingRemote = false;
     } else {
-      // Cloud empty — try importing from localStorage automatically
       const local = readLocalStorage();
       if (local) {
         applyingRemote = true;
         set({
           stores: local.stores ?? [],
           categories: local.categories ?? [],
+          articles: local.articles ?? [],
           shoppingLists: local.shoppingLists ?? [],
           defaultStoreId: local.defaultStoreId ?? null,
           _loaded: true,
           _syncing: false,
         });
         applyingRemote = false;
-        // push to cloud
         await saveToCloud(extractPersisted(get()));
       } else {
         set({ _loaded: true, _syncing: false });
@@ -253,7 +253,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
       }
     }
 
-    // Realtime subscription for cross-device sync
     supabase
       .channel('app_state_sync')
       .on(
@@ -263,11 +262,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
           const newRow = payload.new as { data?: PersistedState } | null;
           if (!newRow?.data) return;
           const incoming = JSON.stringify(newRow.data);
-          if (incoming === lastSavedJson) return; // our own write
+          if (incoming === lastSavedJson) return;
           applyingRemote = true;
           set({
             stores: repairAllStores(newRow.data.stores ?? []),
             categories: newRow.data.categories ?? [],
+            articles: newRow.data.articles ?? [],
             shoppingLists: newRow.data.shoppingLists ?? [],
             defaultStoreId: newRow.data.defaultStoreId ?? null,
           });
@@ -282,10 +282,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const local = readLocalStorage();
     if (!local) return { imported: false };
     const current = get();
-    // Merge: append local items that don't exist
     const merged: PersistedState = {
       stores: [...current.stores, ...(local.stores ?? []).filter((s) => !current.stores.some((cs) => cs.id === s.id))],
       categories: [...current.categories, ...(local.categories ?? []).filter((c) => !current.categories.some((cc) => cc.id === c.id))],
+      articles: [...current.articles, ...(local.articles ?? []).filter((a) => !current.articles.some((ca) => ca.id === a.id))],
       shoppingLists: [...current.shoppingLists, ...(local.shoppingLists ?? []).filter((l) => !current.shoppingLists.some((cl) => cl.id === l.id))],
       defaultStoreId: current.defaultStoreId ?? local.defaultStoreId ?? null,
     };
