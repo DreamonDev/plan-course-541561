@@ -194,6 +194,7 @@ function scheduleSave(state: PersistedState) {
 export const useAppStore = create<AppState>()((set, get) => ({
   stores: [],
   categories: [],
+  articles: [],
   shoppingLists: [],
   defaultStoreId: null,
   _loaded: false,
