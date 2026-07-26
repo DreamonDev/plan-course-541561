@@ -12,12 +12,13 @@ interface Props {
   onStopHover?: (index: number | null) => void;
   hoveredStop?: number | null;
   className?: string;
+  style?: React.CSSProperties;
   /** viewBox restricted around the active stop (mobile zoom) */
   focus?: boolean;
 }
 
 export function RouteMap({
-  store, categories, route, activeStop, onStopHover, hoveredStop, className, focus,
+  store, categories, route, activeStop, onStopHover, hoveredStop, className, style, focus,
 }: Props) {
   const grid = useMemo(() => resolveGrid(store), [store]);
   const { width, height } = planSize(store);
@@ -51,7 +52,7 @@ export function RouteMap({
       className={className}
       viewBox={viewBox}
       preserveAspectRatio="xMidYMid meet"
-      style={{ transition: 'all 500ms cubic-bezier(0.4,0,0.2,1)' }}
+      style={{ transition: 'all 500ms cubic-bezier(0.4,0,0.2,1)', ...style }}
     >
       {grid.map((row) =>
         row.map((cell) => {
