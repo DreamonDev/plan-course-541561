@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import type { Store, Category } from '@/types';
 import { resolveGrid, cellRect, cellCenter, planSize, type ComputedRoute } from '@/lib/routing';
 
@@ -12,7 +12,7 @@ interface Props {
   onStopHover?: (index: number | null) => void;
   hoveredStop?: number | null;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
   /** viewBox restricted around the active stop (mobile zoom) */
   focus?: boolean;
 }
