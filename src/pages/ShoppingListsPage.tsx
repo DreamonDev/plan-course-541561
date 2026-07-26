@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, ShoppingCart, StickyNote, ChevronDown, ChevronUp, Check, Star } from 'lucide-react';
+import { Plus, Trash2, ShoppingCart, StickyNote, ChevronDown, ChevronUp, Check, Star, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function ShoppingListsPage() {
   const {
@@ -14,6 +15,7 @@ export default function ShoppingListsPage() {
     setDefaultStore, ensureListForStore, addItem, updateItem, deleteItem, toggleItem, addArticle,
   } = useAppStore();
 
+  const navigate = useNavigate();
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [newCat, setNewCat] = useState<string>('_none');
@@ -93,6 +95,13 @@ export default function ShoppingListsPage() {
           title="Définir comme magasin par défaut"
         >
           <Star className="h-4 w-4" />
+        </Button>
+        <Button
+          className="gap-1"
+          disabled={!selectedStoreId || (list?.items.filter((i) => !i.checked).length ?? 0) === 0}
+          onClick={() => navigate(`/run/${selectedStoreId}`)}
+        >
+          <Play className="h-4 w-4" /> Lancer course
         </Button>
       </div>
 
