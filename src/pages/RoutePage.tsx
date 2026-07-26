@@ -82,7 +82,8 @@ export default function RoutePage() {
               activeStop={index}
               hoveredStop={hovered}
               onStopHover={setHovered}
-              className="w-full h-auto"
+              className="h-auto"
+              style={{ width: Math.max(900, store.colWidths.reduce((a, b) => a + b, 0) * 1.8), maxWidth: 'none' }}
             />
           </div>
           <div className="space-y-1 overflow-auto max-h-[75vh]">
