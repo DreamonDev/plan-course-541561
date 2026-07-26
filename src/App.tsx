@@ -10,6 +10,7 @@ import StorePlanEditor from "./pages/StorePlanEditor";
 import CategoriesPage from "./pages/CategoriesPage";
 import ArticlesPage from "./pages/ArticlesPage";
 import ShoppingListsPage from "./pages/ShoppingListsPage";
+import RoutePage from "./pages/RoutePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/articles" element={<ArticlesPage />} />
               <Route path="/lists" element={<ShoppingListsPage />} />
+              <Route path="/run/:storeId" element={<RoutePage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
