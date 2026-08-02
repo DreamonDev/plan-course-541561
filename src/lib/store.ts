@@ -175,27 +175,48 @@ function extractPersisted(s: AppState): PersistedState {
   };
 }
 
-// ---- Cloud sync ---------------------------------------------------------
+// ---- Relational cloud sync ---------------------------------------------
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
-let lastSavedJson = '';
 let applyingRemote = false;
+let syncing = false;
+let lastSnapshot: PersistedState = {
+  stores: [],
+  categories: [],
+  articles: [],
+  shoppingLists: [],
+  defaultStoreId: null,
+};
 
-async function saveToCloud(state: PersistedState) {
-  const payload = JSON.parse(JSON.stringify(state));
-  const json = JSON.stringify(payload);
-  if (json === lastSavedJson) return;
-  lastSavedJson = json;
-  const { error } = await supabase
-    .from('app_state')
-    .upsert({ id: CLOUD_ROW_ID, data: payload, updated_at: new Date().toISOString() });
-  if (error) console.error('[cloud sync] save failed', error);
+function clone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v)) as T;
+}
+
+async function flush(next: PersistedState) {
+  if (syncing) {
+    scheduleSave(next);
+    return;
+  }
+  syncing = true;
+  const prev = lastSnapshot;
+  lastSnapshot = clone(next);
+  try {
+    await syncState(prev, lastSnapshot);
+  } catch (e) {
+    console.error('[db] sync failed', e);
+  } finally {
+    syncing = false;
+  }
 }
 
 function scheduleSave(state: PersistedState) {
   if (applyingRemote) return;
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => saveToCloud(state), 400);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    flush(clone(state));
+  }, 400);
 }
+
 
 // -------------------------------------------------------------------------
 
