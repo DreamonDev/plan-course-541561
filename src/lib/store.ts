@@ -211,79 +211,63 @@ export const useAppStore = create<AppState>()((set, get) => ({
   hydrate: async () => {
     if (get()._loaded) return;
     set({ _syncing: true });
-    const { data, error } = await supabase
-      .from('app_state')
-      .select('data')
-      .eq('id', CLOUD_ROW_ID)
-      .maybeSingle();
 
-    if (error) {
-      console.error('[cloud sync] load failed', error);
+    let remote: PersistedState;
+    try {
+      remote = await loadAll();
+    } catch (e) {
+      console.error('[db] load failed', e);
+      set({ _loaded: true, _syncing: false });
+      return;
     }
 
-    const cloud = (data?.data ?? {}) as Partial<PersistedState>;
-    const hasCloudData =
-      (cloud.stores?.length ?? 0) > 0 ||
-      (cloud.categories?.length ?? 0) > 0 ||
-      (cloud.shoppingLists?.length ?? 0) > 0;
-
-    if (hasCloudData) {
-      applyingRemote = true;
-      set({
-        stores: repairAllStores(cloud.stores ?? []),
-        categories: cloud.categories ?? [],
-        articles: cloud.articles ?? [],
-        shoppingLists: cloud.shoppingLists ?? [],
-        defaultStoreId: cloud.defaultStoreId ?? null,
-        _loaded: true,
-        _syncing: false,
-      });
-      lastSavedJson = JSON.stringify(extractPersisted(get()));
-      applyingRemote = false;
-    } else {
-      const local = readLocalStorage();
-      if (local) {
-        applyingRemote = true;
-        set({
-          stores: local.stores ?? [],
-          categories: local.categories ?? [],
-          articles: local.articles ?? [],
-          shoppingLists: local.shoppingLists ?? [],
-          defaultStoreId: local.defaultStoreId ?? null,
-          _loaded: true,
-          _syncing: false,
-        });
-        applyingRemote = false;
-        await saveToCloud(extractPersisted(get()));
-      } else {
-        set({ _loaded: true, _syncing: false });
-        lastSavedJson = JSON.stringify(extractPersisted(get()));
+    // One-shot migration: legacy JSON row (app_state), then localStorage.
+    if (isEmpty(remote)) {
+      const legacy = await loadLegacyJson();
+      const source = legacy ?? readLocalStorage();
+      if (source) {
+        try {
+          await insertAll(source);
+          remote = await loadAll();
+        } catch (e) {
+          console.error('[db] migration failed', e);
+          remote = source;
+        }
       }
     }
 
-    supabase
-      .channel('app_state_sync')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'app_state', filter: `id=eq.${CLOUD_ROW_ID}` },
-        (payload) => {
-          const newRow = payload.new as { data?: PersistedState } | null;
-          if (!newRow?.data) return;
-          const incoming = JSON.stringify(newRow.data);
-          if (incoming === lastSavedJson) return;
-          applyingRemote = true;
-          set({
-            stores: repairAllStores(newRow.data.stores ?? []),
-            categories: newRow.data.categories ?? [],
-            articles: newRow.data.articles ?? [],
-            shoppingLists: newRow.data.shoppingLists ?? [],
-            defaultStoreId: newRow.data.defaultStoreId ?? null,
-          });
-          lastSavedJson = incoming;
-          applyingRemote = false;
-        }
-      )
-      .subscribe();
+    applyingRemote = true;
+    set({
+      stores: repairAllStores(remote.stores),
+      categories: remote.categories,
+      articles: remote.articles,
+      shoppingLists: remote.shoppingLists,
+      defaultStoreId: remote.defaultStoreId,
+      _loaded: true,
+      _syncing: false,
+    });
+    lastSnapshot = clone(extractPersisted(get()));
+    applyingRemote = false;
+
+    subscribeToChanges(async () => {
+      if (syncing || saveTimer) return;
+      try {
+        const fresh = await loadAll();
+        if (JSON.stringify(fresh) === JSON.stringify(lastSnapshot)) return;
+        applyingRemote = true;
+        set({
+          stores: repairAllStores(fresh.stores),
+          categories: fresh.categories,
+          articles: fresh.articles,
+          shoppingLists: fresh.shoppingLists,
+          defaultStoreId: fresh.defaultStoreId,
+        });
+        lastSnapshot = clone(extractPersisted(get()));
+        applyingRemote = false;
+      } catch (e) {
+        console.error('[db] realtime refresh failed', e);
+      }
+    });
   },
 
   importLocal: async () => {
@@ -298,9 +282,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
       defaultStoreId: current.defaultStoreId ?? local.defaultStoreId ?? null,
     };
     set(merged);
-    await saveToCloud(merged);
+    await flush(merged);
     return { imported: true };
   },
+
 
   addStore: (name) =>
     set((s) => ({ stores: [...s.stores, createStore(name)] })),
