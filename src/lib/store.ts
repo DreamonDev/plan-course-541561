@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@/integrations/supabase/client';
+import { externalSupabase as supabase } from '@/integrations/external-supabase/client';
 import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Article } from '@/types';
 
 const CLOUD_ROW_ID = 'default';
