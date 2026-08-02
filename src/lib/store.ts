@@ -1,9 +1,17 @@
 import { create } from 'zustand';
-import { externalSupabase as supabase } from '@/integrations/external-supabase/client';
 import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Article } from '@/types';
+import {
+  loadAll,
+  isEmpty,
+  insertAll,
+  syncState,
+  loadLegacyJson,
+  subscribeToChanges,
+  type PersistedState,
+} from '@/lib/db';
 
-const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
+
 
 function createEmptyCell(): Cell {
   return { type: 'empty' };
