@@ -1,17 +1,9 @@
 import { create } from 'zustand';
+import { externalSupabase as supabase } from '@/integrations/external-supabase/client';
 import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Article } from '@/types';
-import {
-  loadAll,
-  isEmpty,
-  insertAll,
-  syncState,
-  loadLegacyJson,
-  subscribeToChanges,
-  type PersistedState,
-} from '@/lib/db';
 
+const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
-
 
 function createEmptyCell(): Cell {
   return { type: 'empty' };
@@ -102,7 +94,13 @@ function createStore(name: string): Store {
   };
 }
 
-
+interface PersistedState {
+  stores: Store[];
+  categories: Category[];
+  articles: Article[];
+  shoppingLists: ShoppingList[];
+  defaultStoreId: string | null;
+}
 
 interface AppState extends PersistedState {
   _loaded: boolean;
@@ -169,48 +167,27 @@ function extractPersisted(s: AppState): PersistedState {
   };
 }
 
-// ---- Relational cloud sync ---------------------------------------------
+// ---- Cloud sync ---------------------------------------------------------
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSavedJson = '';
 let applyingRemote = false;
-let syncing = false;
-let lastSnapshot: PersistedState = {
-  stores: [],
-  categories: [],
-  articles: [],
-  shoppingLists: [],
-  defaultStoreId: null,
-};
 
-function clone<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v)) as T;
-}
-
-async function flush(next: PersistedState) {
-  if (syncing) {
-    scheduleSave(next);
-    return;
-  }
-  syncing = true;
-  const prev = lastSnapshot;
-  lastSnapshot = clone(next);
-  try {
-    await syncState(prev, lastSnapshot);
-  } catch (e) {
-    console.error('[db] sync failed', e);
-  } finally {
-    syncing = false;
-  }
+async function saveToCloud(state: PersistedState) {
+  const payload = JSON.parse(JSON.stringify(state));
+  const json = JSON.stringify(payload);
+  if (json === lastSavedJson) return;
+  lastSavedJson = json;
+  const { error } = await supabase
+    .from('app_state')
+    .upsert({ id: CLOUD_ROW_ID, data: payload, updated_at: new Date().toISOString() });
+  if (error) console.error('[cloud sync] save failed', error);
 }
 
 function scheduleSave(state: PersistedState) {
   if (applyingRemote) return;
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    flush(clone(state));
-  }, 400);
+  saveTimer = setTimeout(() => saveToCloud(state), 400);
 }
-
 
 // -------------------------------------------------------------------------
 
@@ -226,63 +203,79 @@ export const useAppStore = create<AppState>()((set, get) => ({
   hydrate: async () => {
     if (get()._loaded) return;
     set({ _syncing: true });
+    const { data, error } = await supabase
+      .from('app_state')
+      .select('data')
+      .eq('id', CLOUD_ROW_ID)
+      .maybeSingle();
 
-    let remote: PersistedState;
-    try {
-      remote = await loadAll();
-    } catch (e) {
-      console.error('[db] load failed', e);
-      set({ _loaded: true, _syncing: false });
-      return;
+    if (error) {
+      console.error('[cloud sync] load failed', error);
     }
 
-    // One-shot migration: legacy JSON row (app_state), then localStorage.
-    if (isEmpty(remote)) {
-      const legacy = await loadLegacyJson();
-      const source = legacy ?? readLocalStorage();
-      if (source) {
-        try {
-          await insertAll(source);
-          remote = await loadAll();
-        } catch (e) {
-          console.error('[db] migration failed', e);
-          remote = source;
-        }
-      }
-    }
+    const cloud = (data?.data ?? {}) as Partial<PersistedState>;
+    const hasCloudData =
+      (cloud.stores?.length ?? 0) > 0 ||
+      (cloud.categories?.length ?? 0) > 0 ||
+      (cloud.shoppingLists?.length ?? 0) > 0;
 
-    applyingRemote = true;
-    set({
-      stores: repairAllStores(remote.stores),
-      categories: remote.categories,
-      articles: remote.articles,
-      shoppingLists: remote.shoppingLists,
-      defaultStoreId: remote.defaultStoreId,
-      _loaded: true,
-      _syncing: false,
-    });
-    lastSnapshot = clone(extractPersisted(get()));
-    applyingRemote = false;
-
-    subscribeToChanges(async () => {
-      if (syncing || saveTimer) return;
-      try {
-        const fresh = await loadAll();
-        if (JSON.stringify(fresh) === JSON.stringify(lastSnapshot)) return;
+    if (hasCloudData) {
+      applyingRemote = true;
+      set({
+        stores: repairAllStores(cloud.stores ?? []),
+        categories: cloud.categories ?? [],
+        articles: cloud.articles ?? [],
+        shoppingLists: cloud.shoppingLists ?? [],
+        defaultStoreId: cloud.defaultStoreId ?? null,
+        _loaded: true,
+        _syncing: false,
+      });
+      lastSavedJson = JSON.stringify(extractPersisted(get()));
+      applyingRemote = false;
+    } else {
+      const local = readLocalStorage();
+      if (local) {
         applyingRemote = true;
         set({
-          stores: repairAllStores(fresh.stores),
-          categories: fresh.categories,
-          articles: fresh.articles,
-          shoppingLists: fresh.shoppingLists,
-          defaultStoreId: fresh.defaultStoreId,
+          stores: local.stores ?? [],
+          categories: local.categories ?? [],
+          articles: local.articles ?? [],
+          shoppingLists: local.shoppingLists ?? [],
+          defaultStoreId: local.defaultStoreId ?? null,
+          _loaded: true,
+          _syncing: false,
         });
-        lastSnapshot = clone(extractPersisted(get()));
         applyingRemote = false;
-      } catch (e) {
-        console.error('[db] realtime refresh failed', e);
+        await saveToCloud(extractPersisted(get()));
+      } else {
+        set({ _loaded: true, _syncing: false });
+        lastSavedJson = JSON.stringify(extractPersisted(get()));
       }
-    });
+    }
+
+    supabase
+      .channel('app_state_sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'app_state', filter: `id=eq.${CLOUD_ROW_ID}` },
+        (payload) => {
+          const newRow = payload.new as { data?: PersistedState } | null;
+          if (!newRow?.data) return;
+          const incoming = JSON.stringify(newRow.data);
+          if (incoming === lastSavedJson) return;
+          applyingRemote = true;
+          set({
+            stores: repairAllStores(newRow.data.stores ?? []),
+            categories: newRow.data.categories ?? [],
+            articles: newRow.data.articles ?? [],
+            shoppingLists: newRow.data.shoppingLists ?? [],
+            defaultStoreId: newRow.data.defaultStoreId ?? null,
+          });
+          lastSavedJson = incoming;
+          applyingRemote = false;
+        }
+      )
+      .subscribe();
   },
 
   importLocal: async () => {
@@ -297,10 +290,9 @@ export const useAppStore = create<AppState>()((set, get) => ({
       defaultStoreId: current.defaultStoreId ?? local.defaultStoreId ?? null,
     };
     set(merged);
-    await flush(merged);
+    await saveToCloud(merged);
     return { imported: true };
   },
-
 
   addStore: (name) =>
     set((s) => ({ stores: [...s.stores, createStore(name)] })),
