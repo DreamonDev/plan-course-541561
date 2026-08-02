@@ -102,13 +102,7 @@ function createStore(name: string): Store {
   };
 }
 
-interface PersistedState {
-  stores: Store[];
-  categories: Category[];
-  articles: Article[];
-  shoppingLists: ShoppingList[];
-  defaultStoreId: string | null;
-}
+
 
 interface AppState extends PersistedState {
   _loaded: boolean;
