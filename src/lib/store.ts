@@ -4,6 +4,35 @@ import type { Store, Cell, SubCell, Category, ShoppingList, ShoppingItem, Articl
 
 const CLOUD_ROW_ID = 'default';
 const LOCAL_STORAGE_KEY = 'grocery-app-storage';
+const OFFLINE_CACHE_KEY = 'grocery-app-cache';
+
+function readOfflineCache(): PersistedState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(OFFLINE_CACHE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw);
+    if (!s || typeof s !== 'object') return null;
+    return {
+      stores: s.stores ?? [],
+      categories: s.categories ?? [],
+      articles: s.articles ?? [],
+      shoppingLists: s.shoppingLists ?? [],
+      defaultStoreId: s.defaultStoreId ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeOfflineCache(state: PersistedState) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(state));
+  } catch {
+    /* quota */
+  }
+}
 
 function createEmptyCell(): Cell {
   return { type: 'empty' };
@@ -203,6 +232,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
   hydrate: async () => {
     if (get()._loaded) return;
     set({ _syncing: true });
+
+    // 1) Affichage immédiat depuis le cache local (mode hors-ligne)
+    const cached = readOfflineCache();
+    if (cached) {
+      applyingRemote = true;
+      set({
+        stores: repairAllStores(cached.stores ?? []),
+        categories: cached.categories ?? [],
+        articles: cached.articles ?? [],
+        shoppingLists: cached.shoppingLists ?? [],
+        defaultStoreId: cached.defaultStoreId ?? null,
+      });
+      applyingRemote = false;
+    }
     const { data, error } = await supabase
       .from('app_state')
       .select('data')
@@ -211,6 +254,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
     if (error) {
       console.error('[cloud sync] load failed', error);
+      if (cached) {
+        set({ _loaded: true, _syncing: false });
+        return;
+      }
     }
 
     const cloud = (data?.data ?? {}) as Partial<PersistedState>;
@@ -664,6 +711,7 @@ useAppStore.subscribe((state, prev) => {
   const a = extractPersisted(state);
   const b = extractPersisted(prev);
   if (JSON.stringify(a) === JSON.stringify(b)) return;
+  writeOfflineCache(a);
   scheduleSave(a);
 });
 
