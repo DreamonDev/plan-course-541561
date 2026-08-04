@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from 'react';
-import type { Store, Category } from '@/types';
-import { resolveGrid, cellRect, cellCenter, planSize, type ComputedRoute } from '@/lib/routing';
+import type { Store, Category, Cell, SubCell } from '@/types';
+import { cellCenter, planSize, type ComputedRoute } from '@/lib/routing';
 
 interface Props {
   store: Store;
@@ -17,15 +17,54 @@ interface Props {
   focus?: boolean;
 }
 
+interface Rect { x: number; y: number; w: number; h: number }
+
 export function RouteMap({
   store, categories, route, activeStop, onStopHover, hoveredStop, className, style, focus,
 }: Props) {
-  const grid = useMemo(() => resolveGrid(store), [store]);
   const { width, height } = planSize(store);
   const catById = useMemo(
     () => Object.fromEntries(categories.map((c) => [c.id, c])),
     [categories],
   );
+
+  const xs = useMemo(() => {
+    const acc = [0];
+    store.colWidths.forEach((w) => acc.push(acc[acc.length - 1] + w));
+    return acc;
+  }, [store.colWidths]);
+  const ys = useMemo(() => {
+    const acc = [0];
+    store.rowHeights.forEach((h) => acc.push(acc[acc.length - 1] + h));
+    return acc;
+  }, [store.rowHeights]);
+
+  /** Top-level blocks: merged cells become a single rect. */
+  const blocks = useMemo(() => {
+    const out: { key: string; rect: Rect; cell: Cell; row: number; col: number }[] = [];
+    for (let r = 0; r < store.rows; r++) {
+      for (let c = 0; c < store.cols; c++) {
+        const cell = store.cells[r]?.[c];
+        if (!cell || cell.merged) continue;
+        const span = cell.mergeSpan ?? { rows: 1, cols: 1 };
+        const endR = Math.min(r + span.rows, store.rows);
+        const endC = Math.min(c + span.cols, store.cols);
+        out.push({
+          key: `${r}-${c}`,
+          rect: {
+            x: xs[c] ?? 0,
+            y: ys[r] ?? 0,
+            w: (xs[endC] ?? 0) - (xs[c] ?? 0),
+            h: (ys[endR] ?? 0) - (ys[r] ?? 0),
+          },
+          cell,
+          row: r,
+          col: c,
+        });
+      }
+    }
+    return out;
+  }, [store, xs, ys]);
 
   const doneIndex = route.stopPathIndex[activeStop] ?? route.path.length - 1;
   const donePts = route.path.slice(0, Math.max(1, doneIndex + 1));
@@ -47,6 +86,73 @@ export function RouteMap({
     }
   }
 
+  const renderLeaf = (
+    node: Cell | SubCell,
+    rect: Rect,
+    key: string,
+    isEntrance: boolean,
+    opacity: number,
+  ) => {
+    const cat = node.categoryId ? catById[node.categoryId] : undefined;
+    let fill = 'hsl(var(--card))';
+    if (node.type === 'wall' && !cat) fill = 'hsl(var(--muted-foreground) / 0.5)';
+    if (cat) fill = cat.color;
+    if (node.type === 'checkout') fill = 'hsl(30 90% 55%)';
+    if (isEntrance) fill = 'hsl(var(--primary))';
+    const label = cat?.name ?? (node.type === 'checkout' ? 'Caisses' : isEntrance ? 'Entrée' : '');
+    const fontSize = Math.max(6, Math.min(11, rect.h / 3.2, rect.w / (Math.max(4, label.length) * 0.42)));
+    return (
+      <g key={key} opacity={opacity}>
+        <rect
+          x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+          fill={fill}
+          stroke="hsl(var(--border))"
+          strokeWidth={0.5}
+        />
+        {label && rect.w > 14 && rect.h > 10 && (
+          <foreignObject x={rect.x} y={rect.y} width={rect.w} height={rect.h}>
+            <div
+              style={{
+                width: '100%', height: '100%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                padding: 1, textAlign: 'center', lineHeight: 1.05,
+                fontSize, fontWeight: 700, color: '#fff',
+                overflow: 'hidden', wordBreak: 'break-word', hyphens: 'auto',
+                textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+              }}
+            >
+              {label}
+            </div>
+          </foreignObject>
+        )}
+      </g>
+    );
+  };
+
+  const renderNode = (
+    node: Cell | SubCell,
+    rect: Rect,
+    key: string,
+    isEntrance: boolean,
+    opacity: number,
+  ): JSX.Element[] => {
+    if (node.split) {
+      const [a, b] = node.split.children;
+      const horizontal = node.split.direction === 'horizontal';
+      const rectA: Rect = horizontal
+        ? { ...rect, h: rect.h / 2 }
+        : { ...rect, w: rect.w / 2 };
+      const rectB: Rect = horizontal
+        ? { ...rect, y: rect.y + rect.h / 2, h: rect.h / 2 }
+        : { ...rect, x: rect.x + rect.w / 2, w: rect.w / 2 };
+      return [
+        ...renderNode(a, rectA, `${key}-0`, false, opacity),
+        ...renderNode(b, rectB, `${key}-1`, false, opacity),
+      ];
+    }
+    return [renderLeaf(node, rect, key, isEntrance, opacity)];
+  };
+
   return (
     <svg
       className={className}
@@ -54,33 +160,17 @@ export function RouteMap({
       preserveAspectRatio="xMidYMid meet"
       style={{ transition: 'all 500ms cubic-bezier(0.4,0,0.2,1)', ...style }}
     >
-      {grid.map((row) =>
-        row.map((cell) => {
-          const r = cellRect(store, cell);
-          const catId = cell.categoryIds[0];
-          const cat = catId ? catById[catId] : undefined;
-          const isEntrance = store.entrance?.row === cell.row && store.entrance?.col === cell.col;
-          const isCheckout = cell.types.has('checkout');
-          let fill = 'hsl(var(--card))';
-          if (cell.types.has('wall') && !cat) fill = 'hsl(var(--muted-foreground) / 0.5)';
-          if (cat) fill = cat.color;
-          if (isCheckout) fill = 'hsl(30 90% 55%)';
-          if (isEntrance) fill = 'hsl(var(--primary))';
-          const dim = focus && route.stops[activeStop]
-            ? Math.abs(cell.col - route.stops[activeStop].stand.col) > 6 ? 0.25 : 1
-            : 1;
-          return (
-            <rect
-              key={`${cell.row}-${cell.col}`}
-              x={r.x} y={r.y} width={r.w} height={r.h}
-              fill={fill}
-              fillOpacity={dim}
-              stroke="hsl(var(--border))"
-              strokeWidth={0.5}
-            />
-          );
-        }),
-      )}
+      {blocks.flatMap((b) => {
+        const isEntrance =
+          !!store.entrance &&
+          store.entrance.row >= b.row &&
+          store.entrance.row < b.row + (b.cell.mergeSpan?.rows ?? 1) &&
+          store.entrance.col >= b.col &&
+          store.entrance.col < b.col + (b.cell.mergeSpan?.cols ?? 1);
+        const active = route.stops[activeStop];
+        const dim = focus && active ? (Math.abs(b.col - active.stand.col) > 6 ? 0.25 : 1) : 1;
+        return renderNode(b.cell, b.rect, b.key, isEntrance, dim);
+      })}
 
       {restPts.length > 1 && (
         <polyline
@@ -123,20 +213,11 @@ export function RouteMap({
           >
             <circle
               cx={c.x} cy={c.y}
-              r={isActive ? 13 : 9}
+              r={isActive ? 12 : 8}
               fill={isDone ? 'hsl(150 30% 55%)' : isActive ? 'hsl(150 70% 35%)' : 'white'}
               stroke="hsl(150 65% 30%)"
               strokeWidth={2.5}
             />
-            <text
-              x={c.x} y={c.y + 4}
-              textAnchor="middle"
-              fontSize={11}
-              fontWeight="700"
-              fill={isDone || isActive ? 'white' : 'hsl(150 65% 25%)'}
-            >
-              {i + 1}
-            </text>
             {hoveredStop === i && (
               <foreignObject x={c.x + 12} y={c.y - 44} width={190} height={110} style={{ overflow: 'visible' }}>
                 <div className="rounded-md border border-border bg-popover px-2 py-1.5 shadow-lg text-[11px] leading-tight">

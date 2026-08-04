@@ -24,6 +24,7 @@ export default function RoutePage() {
   );
 
   const [index, setIndex] = useState(0);
+  const [doneStops, setDoneStops] = useState<Set<number>>(new Set());
   const [hovered, setHovered] = useState<number | null>(null);
 
   if (!store || !route) {
@@ -38,13 +39,24 @@ export default function RoutePage() {
   const total = route.stops.length;
   const finished = index >= total;
   const current = route.stops[index];
-  const next = route.stops[index + 1];
 
   const validate = (done: boolean) => {
-    if (current && done && list) {
-      current.items.forEach((it) => updateItem(list.id, it.id, { checked: true }));
-    }
+    setDoneStops((prev) => {
+      const nextSet = new Set(prev);
+      if (done) nextSet.add(index);
+      else nextSet.delete(index);
+      return nextSet;
+    });
     setIndex((i) => Math.min(i + 1, total));
+  };
+
+  const finish = () => {
+    if (list) {
+      doneStops.forEach((i) => {
+        route.stops[i]?.items.forEach((it) => updateItem(list.id, it.id, { checked: true }));
+      });
+    }
+    navigate('/lists');
   };
 
   // ---------- Desktop ----------
@@ -144,7 +156,7 @@ export default function RoutePage() {
           <Flag className="h-8 w-8 mx-auto text-primary" />
           <p className="text-lg font-bold">Direction les caisses !</p>
           <p className="text-sm text-muted-foreground">Tous les articles ont été parcourus.</p>
-          <Button className="w-full h-14 text-lg" onClick={() => navigate('/lists')}>
+          <Button className="w-full h-14 text-lg" onClick={finish}>
             Terminé
           </Button>
           {total > 0 && (
@@ -167,11 +179,6 @@ export default function RoutePage() {
                 {current.items.filter((i) => i.notes).map((i) => `${i.name} : ${i.notes}`).join(' — ')}
               </p>
             )}
-            <p className="text-sm text-muted-foreground mt-2">
-              {next
-                ? `Suivant : ${next.items.map((i) => i.name).join(', ')} — ${next.categoryName}`
-                : 'Suivant : les caisses'}
-            </p>
           </div>
 
           <Button className="w-full h-16 text-xl gap-2" onClick={() => validate(true)}>
