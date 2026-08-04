@@ -200,23 +200,70 @@ function extractPersisted(s: AppState): PersistedState {
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSavedJson = '';
 let applyingRemote = false;
+let pendingState: PersistedState | null = null;
+let flushing = false;
 
 async function saveToCloud(state: PersistedState) {
   const payload = JSON.parse(JSON.stringify(state));
   const json = JSON.stringify(payload);
-  if (json === lastSavedJson) return;
-  lastSavedJson = json;
+  if (json === lastSavedJson) return true;
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    pendingState = payload;
+    return false;
+  }
+
   const { error } = await supabase
     .from('app_state')
     .upsert({ id: CLOUD_ROW_ID, data: payload, updated_at: new Date().toISOString() });
-  if (error) console.error('[cloud sync] save failed', error);
+
+  if (error) {
+    console.error('[cloud sync] save failed, will retry', error);
+    pendingState = payload;
+    return false;
+  }
+
+  lastSavedJson = json;
+  if (pendingState && JSON.stringify(pendingState) === json) pendingState = null;
+  return true;
+}
+
+async function flushPending() {
+  if (flushing || !pendingState) return;
+  flushing = true;
+  try {
+    const toSave = pendingState;
+    const ok = await saveToCloud(toSave);
+    if (ok && pendingState && JSON.stringify(pendingState) === JSON.stringify(toSave)) {
+      pendingState = null;
+    }
+  } finally {
+    flushing = false;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void flushPending();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void flushPending();
+  });
+  // Filet de sécurité : retente régulièrement tant qu'il reste des changements
+  setInterval(() => {
+    if (pendingState && (typeof navigator === 'undefined' || navigator.onLine !== false)) {
+      void flushPending();
+    }
+  }, 10000);
 }
 
 function scheduleSave(state: PersistedState) {
   if (applyingRemote) return;
+  pendingState = JSON.parse(JSON.stringify(state));
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => saveToCloud(state), 400);
+  saveTimer = setTimeout(() => void flushPending(), 400);
 }
+
 
 // -------------------------------------------------------------------------
 
